@@ -90,16 +90,32 @@
             await peer.setRemoteDescription(answer);
         });
 
-        socket.on("candidate", async ({ candidate }) => {
+
+        socket.on("candidate", async (candidate) => {
 
             console.log("GOT CANDIDATE");
 
-            try {
-                await peer.addIceCandidate(candidate);
-            } catch (e) {
-                console.error(e);
+            if (!peer.remoteDescription) {
+
+                console.log("REMOTE DESCRIPTION NOT READY");
+
+                return;
             }
+
+            try {
+
+            await peer.addIceCandidate(
+                new RTCIceCandidate(candidate)
+            );
+
+            } catch (e) {
+
+                console.error(e);
+
+            }
+
         });
+
     }
 
     start();
