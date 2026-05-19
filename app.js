@@ -2,23 +2,15 @@
 
     const localVideo = document.getElementById("local");
     const remoteVideo = document.getElementById("remote");
+    const roomId = "test-room";
 
     const socket = io();
-
-    const peer = new RTCPeerConnection({
-        iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            {
-                urls: "turn:openrelay.metered.ca:80",
-                username: "openrelayproject",
-                credential: "openrelayproject"
-            }
-]
-    });
-
+    let peer;
     let localStream;
 
-    async function start() {
+    socket.emit("join", roomId);
+
+    async function startMedia() {
 
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
@@ -27,78 +19,86 @@
 
         localVideo.srcObject = localStream;
 
+        peer = createPeer();
+
         localStream.getTracks().forEach(track => {
             peer.addTrack(track, localStream);
         });
-
     }
 
-    start();
+    function createPeer() {
 
-    peer.ontrack = event => {
+        const p = new RTCPeerConnection({
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" }
+            ]
+        });
 
-        console.log("REMOTE TRACK");
+        p.ontrack = (event) => {
+            remoteVideo.srcObject = event.streams[0];
+        };
 
-        remoteVideo.srcObject = event.streams[0];
+        p.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("candidate", {
+                    candidate: event.candidate,
+                    roomId
+                });
+            }
+        };
 
-    };
+        return p;
+    }
 
-    peer.onicecandidate = event => {
+    socket.on("user-joined", async () => {
+        console.log("USER JOINED → I AM INITIATOR");
 
-        if (event.candidate) {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
 
-            console.log("SENDING CANDIDATE");
+        socket.emit("offer", {
+            offer,
+            roomId
+        });
+    });
 
-            socket.emit("candidate", event.candidate);
+    socket.on("offer", async (offer) => {
 
-        }
+        console.log("GOT OFFER");
 
-    };
+        await peer.setRemoteDescription(offer);
 
-    socket.on("candidate", async candidate => {
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
 
-        console.log("RECEIVED CANDIDATE");
+        socket.emit("answer", {
+            answer,
+            roomId
+        });
+    });
+
+    socket.on("answer", async (answer) => {
+
+        console.log("GOT ANSWER");
+
+        await peer.setRemoteDescription(answer);
+    });
+
+    socket.on("candidate", async ({ candidate }) => {
+
+        console.log("GOT CANDIDATE");
 
         try {
             await peer.addIceCandidate(candidate);
         } catch (e) {
             console.error(e);
         }
-
     });
 
-    socket.on("offer", async offer => {
-
-        console.log("RECEIVED OFFER");
-
-        await peer.setRemoteDescription(offer);
-
-        const answer = await peer.createAnswer();
-
-        await peer.setLocalDescription(answer);
-
-        socket.emit("answer", answer);
-
-    });
-
-    socket.on("answer", async answer => {
-
-        console.log("RECEIVED ANSWER");
-
-        await peer.setRemoteDescription(answer);
-
-    });
+    startMedia();
 
     window.call = async () => {
-
-        console.log("CREATING OFFER");
-
-        const offer = await peer.createOffer();
-
-        await peer.setLocalDescription(offer);
-
-        socket.emit("offer", offer);
-
+        console.log("manual call ignored in new flow");
     };
 
 })();
