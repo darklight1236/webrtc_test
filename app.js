@@ -1,7 +1,7 @@
 (() => {
 
     const localVideo = document.getElementById("local");
-    const remoteVideo = document.getElementById("remote");
+    const friendVideo = document.getElementById("friend");
 
     const socket = io();
 
@@ -13,36 +13,57 @@
         ]
     });
 
+    let localStream;
+
     async function start() {
 
-        const stream = await navigator.mediaDevices.getUserMedia({
+        localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
         });
 
-        localVideo.srcObject = stream;
+        localVideo.srcObject = localStream;
 
-        stream.getTracks().forEach(track => {
-            peer.addTrack(track, stream);
+        localStream.getTracks().forEach(track => {
+            peer.addTrack(track, localStream);
         });
 
     }
 
+    start();
+
     peer.ontrack = event => {
-        remoteVideo.srcObject = event.streams[0];
+
+        console.log("REMOTE TRACK");
+
+        friendVideo.srcObject = event.streams[0];
     };
 
     peer.onicecandidate = event => {
+
         if (event.candidate) {
+
+            console.log("SENDING CANDIDATE");
+
             socket.emit("candidate", event.candidate);
         }
     };
 
     socket.on("candidate", async candidate => {
-        await peer.addIceCandidate(candidate);
+
+        console.log("RECEIVED CANDIDATE");
+
+        try {
+            await peer.addIceCandidate(candidate);
+        } catch (e) {
+            console.error(e);
+        }
+
     });
 
     socket.on("offer", async offer => {
+
+        console.log("RECEIVED OFFER");
 
         await peer.setRemoteDescription(offer);
 
@@ -55,12 +76,16 @@
     });
 
     socket.on("answer", async answer => {
+
+        console.log("RECEIVED ANSWER");
+
         await peer.setRemoteDescription(answer);
+
     });
 
-    start();
-
     window.call = async () => {
+
+        console.log("CREATING OFFER");
 
         const offer = await peer.createOffer();
 
