@@ -3,7 +3,7 @@
     const localVideo = document.getElementById("local");
     const remoteVideo = document.getElementById("remote");
 
-    const socket = io("http://localhost:3000");
+    const socket = io("http://82.26.150.172:3000");
 
     const peer = new RTCPeerConnection({
         iceServers: [
