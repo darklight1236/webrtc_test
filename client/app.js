@@ -1,73 +1,38 @@
-(() => {
+const express = require("express");
+const http = require("http");
+const path = require("path");
+const { Server } = require("socket.io");
 
-    const localVideo = document.getElementById("local");
-    const remoteVideo = document.getElementById("remote");
+const app = express();
 
-    const socket = io("http://82.26.150.172:3000");
+app.use(express.static(path.join(__dirname, "../client")));
 
-    const peer = new RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.l.google.com:19302"
-            }
-        ]
-    });
+const server = http.createServer(app);
 
-    async function start() {
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
-
-        localVideo.srcObject = stream;
-
-        stream.getTracks().forEach(track => {
-            peer.addTrack(track, stream);
-        });
-
+const io = new Server(server, {
+    cors: {
+        origin: "*"
     }
+});
 
-    peer.ontrack = event => {
-        remoteVideo.srcObject = event.streams[0];
-    };
+io.on("connection", socket => {
 
-    peer.onicecandidate = event => {
-        if (event.candidate) {
-            socket.emit("candidate", event.candidate);
-        }
-    };
+    console.log("User connected:", socket.id);
 
-    socket.on("candidate", async candidate => {
-        await peer.addIceCandidate(candidate);
+    socket.on("offer", offer => {
+        socket.broadcast.emit("offer", offer);
     });
 
-    socket.on("offer", async offer => {
-
-        await peer.setRemoteDescription(offer);
-
-        const answer = await peer.createAnswer();
-
-        await peer.setLocalDescription(answer);
-
-        socket.emit("answer", answer);
-
+    socket.on("answer", answer => {
+        socket.broadcast.emit("answer", answer);
     });
 
-    socket.on("answer", async answer => {
-        await peer.setRemoteDescription(answer);
+    socket.on("candidate", candidate => {
+        socket.broadcast.emit("candidate", candidate);
     });
 
-    start();
+});
 
-    window.call = async () => {
-
-        const offer = await peer.createOffer();
-
-        await peer.setLocalDescription(offer);
-
-        socket.emit("offer", offer);
-
-    };
-
-})();
+server.listen(3000, () => {
+    console.log("Server running on port 3000");
+});
