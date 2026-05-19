@@ -5,26 +5,9 @@
     const roomId = "test-room";
 
     const socket = io();
+
     let peer;
     let localStream;
-
-    socket.emit("join", roomId);
-
-    async function startMedia() {
-
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
-
-        localVideo.srcObject = localStream;
-
-        peer = createPeer();
-
-        localStream.getTracks().forEach(track => {
-            peer.addTrack(track, localStream);
-        });
-    }
 
     function createPeer() {
 
@@ -50,55 +33,75 @@
         return p;
     }
 
-    socket.on("user-joined", async () => {
-        console.log("USER JOINED → I AM INITIATOR");
+    async function start() {
 
-        const offer = await peer.createOffer();
-        await peer.setLocalDescription(offer);
+        peer = createPeer();
 
-        socket.emit("offer", {
-            offer,
-            roomId
+        socket.emit("join", roomId);
+
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
         });
-    });
 
-    socket.on("offer", async (offer) => {
+        localVideo.srcObject = localStream;
 
-        console.log("GOT OFFER");
-
-        await peer.setRemoteDescription(offer);
-
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-
-        socket.emit("answer", {
-            answer,
-            roomId
+        localStream.getTracks().forEach(track => {
+            peer.addTrack(track, localStream);
         });
-    });
 
-    socket.on("answer", async (answer) => {
+        setupSocketHandlers();
+    }
 
-        console.log("GOT ANSWER");
+    function setupSocketHandlers() {
 
-        await peer.setRemoteDescription(answer);
-    });
+        socket.on("user-joined", async () => {
 
-    socket.on("candidate", async ({ candidate }) => {
+            console.log("USER JOINED → CREATE OFFER");
 
-        console.log("GOT CANDIDATE");
+            const offer = await peer.createOffer();
+            await peer.setLocalDescription(offer);
 
-        try {
-            await peer.addIceCandidate(candidate);
-        } catch (e) {
-            console.error(e);
-        }
-    });
+            socket.emit("offer", {
+                offer,
+                roomId
+            });
+        });
 
-    startMedia();
+        socket.on("offer", async (offer) => {
 
-    window.call = async () => {
-        console.log("manual call ignored in new flow");
-    };
+            console.log("GOT OFFER");
+
+            await peer.setRemoteDescription(offer);
+
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+
+            socket.emit("answer", {
+                answer,
+                roomId
+            });
+        });
+
+        socket.on("answer", async (answer) => {
+
+            console.log("GOT ANSWER");
+
+            await peer.setRemoteDescription(answer);
+        });
+
+        socket.on("candidate", async ({ candidate }) => {
+
+            console.log("GOT CANDIDATE");
+
+            try {
+                await peer.addIceCandidate(candidate);
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    start();
 
 })();
