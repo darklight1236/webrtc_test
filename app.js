@@ -3,7 +3,7 @@
     const localVideo = document.getElementById("local");
     const remoteVideo = document.getElementById("remote");
 
-    const socket = io("https://crewlink.ru/");
+    const socket = io();
 
     const peer = new RTCPeerConnection({
         iceServers: [
