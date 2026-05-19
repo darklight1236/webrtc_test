@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="client">
+            <label for="local">Local</label>
+            <video id="local" class="web_cam" autoplay playsinline muted></video>
+        </div>
+        <div class="client">
+            <label for="local">Friend</label>
+            <video id="remote" class="web_cam" autoplay playsinline></video>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
