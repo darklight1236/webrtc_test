@@ -5,7 +5,11 @@ const { Server } = require("socket.io");
 
 const app = express();
 
-app.use(express.static(path.join(__dirname, "../client")));
+app.use(express.static(__dirname));
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
 
 const server = http.createServer(app);
 
@@ -17,7 +21,7 @@ const io = new Server(server, {
 
 io.on("connection", socket => {
 
-    console.log("User connected:", socket.id);
+    console.log("CONNECTED:", socket.id);
 
     socket.on("offer", offer => {
         socket.broadcast.emit("offer", offer);
@@ -31,8 +35,12 @@ io.on("connection", socket => {
         socket.broadcast.emit("candidate", candidate);
     });
 
+    socket.on("disconnect", () => {
+        console.log("DISCONNECTED");
+    });
+
 });
 
 server.listen(3000, () => {
-    console.log("Server running on port 3000");
+    console.log("SERVER STARTED");
 });
