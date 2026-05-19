@@ -1,7 +1,7 @@
 (() => {
 
     const localVideo = document.getElementById("local");
-    const friendVideo = document.getElementById("friend");
+    const remoteVideo = document.getElementById("remote");
 
     const socket = io();
 
@@ -36,7 +36,8 @@
 
         console.log("REMOTE TRACK");
 
-        friendVideo.srcObject = event.streams[0];
+        remoteVideo.srcObject = event.streams[0];
+
     };
 
     peer.onicecandidate = event => {
@@ -46,7 +47,9 @@
             console.log("SENDING CANDIDATE");
 
             socket.emit("candidate", event.candidate);
+
         }
+
     };
 
     socket.on("candidate", async candidate => {
