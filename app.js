@@ -1,46 +1,73 @@
-const express = require("express");
-const http = require("http");
-const path = require("path");
-const { Server } = require("socket.io");
+(() => {
 
-const app = express();
+    const localVideo = document.getElementById("local");
+    const remoteVideo = document.getElementById("remote");
 
-app.use(express.static(__dirname));
+    const socket = io("http://localhost:3000");
 
-app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
-});
+    const peer = new RTCPeerConnection({
+        iceServers: [
+            {
+                urls: "stun:stun.l.google.com:19302"
+            }
+        ]
+    });
 
-const server = http.createServer(app);
+    async function start() {
 
-const io = new Server(server, {
-    cors: {
-        origin: "*"
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
+
+        localVideo.srcObject = stream;
+
+        stream.getTracks().forEach(track => {
+            peer.addTrack(track, stream);
+        });
+
     }
-});
 
-io.on("connection", socket => {
+    peer.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+    };
 
-    console.log("CONNECTED:", socket.id);
+    peer.onicecandidate = event => {
+        if (event.candidate) {
+            socket.emit("candidate", event.candidate);
+        }
+    };
 
-    socket.on("offer", offer => {
-        socket.broadcast.emit("offer", offer);
+    socket.on("candidate", async candidate => {
+        await peer.addIceCandidate(candidate);
     });
 
-    socket.on("answer", answer => {
-        socket.broadcast.emit("answer", answer);
+    socket.on("offer", async offer => {
+
+        await peer.setRemoteDescription(offer);
+
+        const answer = await peer.createAnswer();
+
+        await peer.setLocalDescription(answer);
+
+        socket.emit("answer", answer);
+
     });
 
-    socket.on("candidate", candidate => {
-        socket.broadcast.emit("candidate", candidate);
+    socket.on("answer", async answer => {
+        await peer.setRemoteDescription(answer);
     });
 
-    socket.on("disconnect", () => {
-        console.log("DISCONNECTED");
-    });
+    start();
 
-});
+    window.call = async () => {
 
-server.listen(3000, () => {
-    console.log("SERVER STARTED");
-});
+        const offer = await peer.createOffer();
+
+        await peer.setLocalDescription(offer);
+
+        socket.emit("offer", offer);
+
+    };
+
+})();
