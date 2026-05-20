@@ -269,3 +269,24 @@ video{
         height: 100dvh;
     }
 }
+
+.name-input {
+    width: 220px;
+    padding: 12px 14px;
+
+    margin-bottom: 12px;
+
+    border-radius: 12px;
+    border: none;
+
+    outline: none;
+
+    background: #1f1f1f;
+    color: white;
+
+    font-size: 14px;
+}
+
+.name-input::placeholder {
+    color: #888;
+}

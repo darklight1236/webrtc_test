@@ -3,6 +3,9 @@
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
 
+    const params = new URLSearchParams(window.location.search);
+    const myName = params.get("name") || "User";
+
     const socket = io();
     const roomId = "test-room";
 
@@ -28,7 +31,10 @@
         localVideo.srcObject = localStream;
         detectSpeaking(localStream, "local-client");
 
-        socket.emit("join-room", roomId);
+        socket.emit("join-room", {
+            roomId,
+            name: myName
+        });
     }
 
     // ───────────────────────────────
@@ -68,7 +74,7 @@
 
         const username = document.createElement("div");
         username.className = "username";
-        username.innerText = "User";
+        username.innerText = myName;
 
         client.appendChild(video);
         client.appendChild(username);
@@ -152,7 +158,7 @@
             if (id === socket.id) return;
             if (peers[id]) return;
 
-            const pc = createPeer(id);
+            const pc = createPeer(id, name);
 
             pc.createOffer()
                 .then(o => pc.setLocalDescription(o))
@@ -256,6 +262,11 @@
 
     socket.on("user-left", (id) => {
         cleanupPeer(id);
+    });
+
+    socket.on("user-joined", ({ id, name }) => {
+        console.log(name + " joined");
+        createPeer(id, name);
     });
 
     function detectSpeaking(stream, clientId) {

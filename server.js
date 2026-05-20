@@ -11,15 +11,22 @@ app.use(express.static(path.join(__dirname)));
 
 io.on("connection", (socket) => {
 
-    socket.on("join-room", (roomId) => {
+    socket.on("join-room", ({ roomId, name }) => {
 
         socket.join(roomId);
 
+        socket.data.name = name;
+
+        // отправляем новому список уже существующих
         const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
 
         socket.emit("users", clients);
 
-        socket.to(roomId).emit("user-joined", socket.id);
+        // сообщаем другим о новом пользователе
+        socket.to(roomId).emit("user-joined", {
+            id: socket.id,
+            name: socket.data.name
+        });
     });
 
     socket.on("offer", ({ to, offer }) => {

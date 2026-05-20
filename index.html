@@ -10,6 +10,8 @@
     <div class="lobby">
         <h1>Crewlink</h1>
 
+        <input id="nameInput" class="name-input" placeholder="Введите имя..." />
+
         <button id="joinBtn" class="join-btn">
             Подключиться
         </button>
@@ -17,9 +19,10 @@
 
     <script>
         document.getElementById("joinBtn").onclick = () => {
-            window.location.href = "/chat.html";
+            const name = document.getElementById("nameInput").value.trim() || "Guest";
+            window.location.href = `/chat.html?name=${encodeURIComponent(name)}`;
         };
-    </script>
+</script>
 
 </body>
 </html>
