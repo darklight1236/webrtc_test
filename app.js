@@ -12,8 +12,6 @@
 
     let localStream;
 
-    // PEERS
-
     const peers = {};
 
     // ─────────────────────────────
@@ -88,7 +86,7 @@
     }
 
     // ─────────────────────────────
-    // REMOVE USER
+    // REMOVE PEER
     // ─────────────────────────────
 
     function removePeer(id) {
@@ -109,6 +107,17 @@
             );
 
         if (el) {
+
+            const video =
+                el.querySelector("video");
+
+            if (video) {
+
+                video.pause();
+
+                video.srcObject = null;
+
+            }
 
             el.remove();
 
@@ -188,6 +197,25 @@
                 );
             }
 
+            // TRACK ENDED
+
+            event.streams[0]
+                .getTracks()
+                .forEach(track => {
+
+                    track.onended = () => {
+
+                        console.log(
+                            "TRACK ENDED:",
+                            id
+                        );
+
+                        removePeer(id);
+
+                    };
+
+                });
+
         };
 
         // ICE
@@ -209,18 +237,15 @@
 
         };
 
-        // STATE
+        // CONNECTION STATE
 
         pc.onconnectionstatechange = () => {
 
             console.log(
+                "STATE:",
                 id,
                 pc.connectionState
             );
-
-            // НЕ удаляем disconnected
-            // иначе peer рушится
-            // при кратких reconnect
 
             if (
                 pc.connectionState === "failed" ||
@@ -228,6 +253,46 @@
             ) {
 
                 removePeer(id);
+
+            }
+
+        };
+
+        // ICE STATE
+
+        pc.oniceconnectionstatechange = () => {
+
+            console.log(
+                "ICE:",
+                id,
+                pc.iceConnectionState
+            );
+
+            if (
+                pc.iceConnectionState === "failed" ||
+                pc.iceConnectionState === "closed"
+            ) {
+
+                removePeer(id);
+
+            }
+
+            if (
+                pc.iceConnectionState === "disconnected"
+            ) {
+
+                setTimeout(() => {
+
+                    if (
+                        peers[id] &&
+                        pc.iceConnectionState === "disconnected"
+                    ) {
+
+                        removePeer(id);
+
+                    }
+
+                }, 5000);
 
             }
 
@@ -246,7 +311,10 @@
 
             if (id === socket.id) continue;
 
-            const pc = createPeer(id);
+            if (peers[id]) continue;
+
+            const pc =
+                createPeer(id);
 
             const offer =
                 await pc.createOffer();
@@ -282,7 +350,9 @@
         try {
 
             await pc.setRemoteDescription(
-                new RTCSessionDescription(offer)
+                new RTCSessionDescription(
+                    offer
+                )
             );
 
             const answer =
@@ -317,14 +387,17 @@
 
         console.log("ANSWER:", from);
 
-        const pc = peers[from];
+        const pc =
+            peers[from];
 
         if (!pc) return;
 
         try {
 
             await pc.setRemoteDescription(
-                new RTCSessionDescription(answer)
+                new RTCSessionDescription(
+                    answer
+                )
             );
 
         } catch (e) {
@@ -336,19 +409,22 @@
     });
 
     // ─────────────────────────────
-    // ICE
+    // CANDIDATE
     // ─────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
 
-        const pc = peers[from];
+        const pc =
+            peers[from];
 
         if (!pc) return;
 
         try {
 
             await pc.addIceCandidate(
-                new RTCIceCandidate(candidate)
+                new RTCIceCandidate(
+                    candidate
+                )
             );
 
         } catch (e) {
@@ -364,6 +440,8 @@
     // ─────────────────────────────
 
     socket.on("user-left", (id) => {
+
+        console.log("LEFT:", id);
 
         removePeer(id);
 
@@ -387,7 +465,9 @@
             );
 
         const dataArray =
-            new Uint8Array(analyser.fftSize);
+            new Uint8Array(
+                analyser.fftSize
+            );
 
         microphone.connect(analyser);
 
