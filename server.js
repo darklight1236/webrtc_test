@@ -4,88 +4,61 @@ const { Server } = require("socket.io");
 const path = require("path");
 
 const app = express();
-
 const server = http.createServer(app);
-
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
+const users = new Set();
+
 io.on("connection", (socket) => {
 
-    console.log("CONNECTED:", socket.id);
+    console.log("USER CONNECTED:", socket.id);
 
-    socket.on("join-room", (roomId) => {
+    users.add(socket.id);
 
-        socket.join(roomId);
+    socket.emit("users", [...users]);
 
-        const users =
-            Array.from(
-                io.sockets.adapter.rooms.get(roomId) || []
-            );
-
-        // Отправляем новому пользователю список участников
-
-        socket.emit("users", users);
-
-    });
-
-    // OFFER
+    socket.broadcast.emit("user-joined", socket.id);
 
     socket.on("offer", ({ to, offer }) => {
 
         io.to(to).emit("offer", {
-
             from: socket.id,
-
             offer
-
         });
 
     });
-
-    // ANSWER
 
     socket.on("answer", ({ to, answer }) => {
 
         io.to(to).emit("answer", {
-
             from: socket.id,
-
             answer
-
         });
 
     });
-
-    // ICE
 
     socket.on("candidate", ({ to, candidate }) => {
 
         io.to(to).emit("candidate", {
-
             from: socket.id,
-
             candidate
-
         });
 
     });
 
-    // DISCONNECT
-
     socket.on("disconnect", () => {
 
-        console.log("DISCONNECTED:", socket.id);
+        console.log("USER LEFT:", socket.id);
+
+        users.delete(socket.id);
 
         io.emit("user-left", socket.id);
-
     });
 
 });
 
 server.listen(3000, () => {
-
-    console.log("Server started on port 3000");
-
+    console.log("SERVER RUNNING ON 3000");
 });
