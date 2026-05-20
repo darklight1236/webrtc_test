@@ -26,6 +26,7 @@
         streamReady = true;
 
         localVideo.srcObject = localStream;
+        detectSpeaking(localStream, "local-client");
 
         socket.emit("join-room", roomId);
     }
@@ -243,6 +244,50 @@
     socket.on("user-left", (id) => {
         cleanupPeer(id);
     });
+
+    function detectSpeaking(stream, clientId) {
+
+    const audioContext = new AudioContext();
+
+    const analyser = audioContext.createAnalyser();
+
+    const microphone =
+        audioContext.createMediaStreamSource(stream);
+
+    const dataArray =
+        new Uint8Array(analyser.fftSize);
+
+    microphone.connect(analyser);
+
+    function checkAudio() {
+
+        analyser.getByteTimeDomainData(dataArray);
+
+        let volume = 0;
+
+        for (let i = 0; i < dataArray.length; i++) {
+
+            volume += Math.abs(dataArray[i] - 128);
+        }
+
+        const speaking = volume > 2500;
+
+        const client = document.getElementById(clientId);
+
+        if (client) {
+
+            if (speaking) {
+                client.classList.add("speaking");
+            } else {
+                client.classList.remove("speaking");
+            }
+        }
+
+        requestAnimationFrame(checkAudio);
+    }
+
+    checkAudio();
+}
 
     start();
 
