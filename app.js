@@ -302,6 +302,45 @@
     checkAudio();
 }
 
+
+    // micro\video on\off button
+    // ───────────────────────────────
+    // CONTROLS
+    // ───────────────────────────────
+
+    const micBtn = document.getElementById("micBtn");
+    const camBtn = document.getElementById("camBtn");
+
+    let micEnabled = true;
+    let camEnabled = true;
+
+    // MIC
+    micBtn.onclick = () => {
+
+        micEnabled = !micEnabled;
+
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+
+        micBtn.classList.toggle("off", !micEnabled);
+        micBtn.classList.toggle("active", micEnabled);
+    };
+
+    // CAMERA
+    camBtn.onclick = () => {
+
+        camEnabled = !camEnabled;
+
+        localStream.getVideoTracks().forEach(track => {
+            track.enabled = camEnabled;
+        });
+
+        camBtn.classList.toggle("off", !camEnabled);
+        camBtn.classList.toggle("active", camEnabled);
+    };
+
+
     start();
 
 })();
