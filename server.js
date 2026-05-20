@@ -7,32 +7,44 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ✔ как ты просил
 app.use(express.static(path.join(__dirname)));
+
+const users = {};
 
 io.on("connection", (socket) => {
 
-    console.log("USER CONNECTED:", socket.id);
+    socket.on("join-room", (roomId) => {
 
-    socket.on("join", (roomId) => {
+        if (!users[roomId]) users[roomId] = [];
+
+        users[roomId].push(socket.id);
+
         socket.join(roomId);
-        socket.to(roomId).emit("user-joined");
+
+        // отправляем список всех пользователей в комнате
+        io.to(roomId).emit("users", users[roomId]);
     });
 
-    socket.on("offer", ({ offer, roomId }) => {
-        socket.to(roomId).emit("offer", offer);
+    socket.on("offer", ({ to, offer }) => {
+        io.to(to).emit("offer", { from: socket.id, offer });
     });
 
-    socket.on("answer", ({ answer, roomId }) => {
-        socket.to(roomId).emit("answer", answer);
+    socket.on("answer", ({ to, answer }) => {
+        io.to(to).emit("answer", { from: socket.id, answer });
     });
 
-    socket.on("candidate", ({ candidate, roomId }) => {
-        socket.to(roomId).emit("candidate", candidate);
+    socket.on("candidate", ({ to, candidate }) => {
+        io.to(to).emit("candidate", { from: socket.id, candidate });
+    });
+
+    socket.on("disconnect", () => {
+        for (const roomId in users) {
+            users[roomId] = users[roomId].filter(id => id !== socket.id);
+        }
     });
 
 });
 
 server.listen(3000, () => {
-    console.log("Server running on 3000");
+    console.log("Server running");
 });
