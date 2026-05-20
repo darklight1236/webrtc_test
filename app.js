@@ -73,6 +73,20 @@
         video.playsInline = true;
         video.id = id;
 
+        video.onclick = () => {
+
+            const el = document.getElementById(`client-${id}`);
+
+            if (!el) return;
+
+            if (el.classList.contains("screen-active")) {
+                el.classList.remove("screen-active");
+                activeScreenId = null;
+            } else {
+                setScreenFocus(id);
+            }
+        };
+
         const username = document.createElement("div");
         username.className = "username";
         username.innerText = name || "User";
@@ -333,22 +347,6 @@
 
     let screenStream = null;
     let isScreenSharing = false;
-    let activeScreenId = null;
-
-    function setScreenFocus(id) {
-
-        document.querySelectorAll(".client").forEach(el => {
-            el.classList.remove("screen-active");
-        });
-
-        const el = document.getElementById(`client-${id}`);
-
-        if (el) {
-            el.classList.add("screen-active");
-        }
-
-        activeScreenId = id;
-    }
 
     // MIC
     micBtn.onclick = () => {
@@ -408,38 +406,32 @@
 
             if (!isScreenSharing) {
 
-                // ─────────────────────
-                // START SCREEN SHARE
-                // ─────────────────────
-
                 screenStream = await navigator.mediaDevices.getDisplayMedia({
                     video: true,
                     audio: false
                 });
 
-                const screenTrack = screenStream.getVideoTracks()[0];
+                const videoTrack = screenStream.getVideoTracks()[0];
 
-                // заменяем видео у всех peers
                 Object.values(peers).forEach(pc => {
 
                     const sender = pc.getSenders().find(s =>
                         s.track && s.track.kind === "video"
                     );
 
-                    if (sender) {
-                        sender.replaceTrack(screenTrack);
+                    if (sender && videoTrack) {
+                        sender.replaceTrack(videoTrack);
                     }
 
                 });
 
-                // локальный preview
                 localVideo.srcObject = screenStream;
 
                 isScreenSharing = true;
                 screenBtn.classList.add("presenting");
 
-                // если пользователь нажал "Stop sharing" в браузере
-                screenTrack.onended = stopScreenShare;
+                // авто стоп если пользователь нажал "Stop sharing"
+                videoTrack.onended = stopScreenShare;
             }
 
             else {
@@ -463,7 +455,7 @@
                 s.track && s.track.kind === "video"
             );
 
-            if (sender) {
+            if (sender && cameraTrack) {
                 sender.replaceTrack(cameraTrack);
             }
 
@@ -479,9 +471,26 @@
             screenStream = null;
         }
 
+        // убрать фокус экрана
         document.querySelectorAll(".client").forEach(el => {
             el.classList.remove("screen-active");
         });
+    }
+
+    let activeScreenId = null;
+
+    function setScreenFocus(id) {
+
+        document.querySelectorAll(".client").forEach(el => {
+            el.classList.remove("screen-active");
+        });
+
+        const el = document.getElementById(`client-${id}`);
+
+        if (el) {
+            el.classList.add("screen-active");
+            activeScreenId = id;
+        }
     }
 
     start();
