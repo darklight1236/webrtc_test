@@ -32,6 +32,14 @@
         localVideo.srcObject = localStream;
         detectSpeaking(localStream, "local-client");
 
+        localStream.getVideoTracks()[0].onmute = () => {
+            toggleCameraOff(true);
+        };
+
+        localStream.getVideoTracks()[0].onunmute = () => {
+            toggleCameraOff(false);
+        };
+
         socket.emit("join-room", {
             roomId,
             name: myName
@@ -282,6 +290,10 @@
         cleanupPeer(id);
     });
 
+    socket.on("camera-state", ({ userId, isOff }) => {
+        setCameraOff(userId, isOff);
+    });
+
     socket.on("user-joined", ({ id, name }) => {
         console.log(name + " joined");
         createPeer(id, name);
@@ -413,6 +425,11 @@
 
                 const videoTrack = screenStream.getVideoTracks()[0];
 
+                if (videoTrack) {
+                    videoTrack.onmute = () => toggleCameraOff(true);
+                    videoTrack.onunmute = () => toggleCameraOff(false);
+                }
+
                 Object.values(peers).forEach(pc => {
 
                     const sender = pc.getSenders().find(s =>
@@ -506,6 +523,32 @@
         else if (el.msRequestFullscreen) {
             el.msRequestFullscreen();
         }
+    }
+
+    function toggleCameraOff(isOff) {
+
+        socket.emit("camera-state", {
+            roomId,
+            userId: socket.id,
+            isOff
+        });
+    }
+
+    function setCameraOff(id, isOff) {
+
+        const el = document.getElementById(`client-${id}`);
+        if (!el) return;
+
+        let img = el.querySelector(".camera-off");
+
+        if (!img) {
+            img = document.createElement("img");
+            img.className = "camera-off";
+            img.src = "img/rat-dance.gif";
+            el.appendChild(img);
+        }
+
+        img.style.display = isOff ? "block" : "none";
     }
 
     start();

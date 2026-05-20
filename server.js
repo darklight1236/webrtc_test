@@ -54,6 +54,13 @@ io.on("connection", (socket) => {
         }
     });
 
+    socket.on("camera-state", ({ roomId, userId, isOff }) => {
+        socket.to(roomId).emit("camera-state", {
+            userId,
+            isOff
+        });
+    });
+
 });
 
 server.listen(3000, () => {
