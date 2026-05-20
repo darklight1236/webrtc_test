@@ -1,53 +1,36 @@
 const express = require("express");
-
 const http = require("http");
-
 const { Server } = require("socket.io");
 
-const path = require("path");
-
 const app = express();
-
 const server = http.createServer(app);
-
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname)));
+app.use(express.static("public"));
 
-io.on("connection", socket => {
+io.on("connection", (socket) => {
 
-    console.log("CONNECTED:", socket.id);
+    console.log("USER CONNECTED:", socket.id);
 
-    socket.on("join", roomId => {
-
+    socket.on("join", (roomId) => {
         socket.join(roomId);
-
         socket.to(roomId).emit("user-joined");
-
     });
 
     socket.on("offer", ({ offer, roomId }) => {
-
         socket.to(roomId).emit("offer", offer);
-
     });
 
     socket.on("answer", ({ answer, roomId }) => {
-
         socket.to(roomId).emit("answer", answer);
-
     });
 
     socket.on("candidate", ({ candidate, roomId }) => {
-
         socket.to(roomId).emit("candidate", candidate);
-
     });
 
 });
 
 server.listen(3000, () => {
-
-    console.log("SERVER STARTED");
-
+    console.log("Server running on port 3000");
 });
