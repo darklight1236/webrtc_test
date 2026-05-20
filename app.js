@@ -5,7 +5,7 @@
     const localVideo = document.getElementById("local");
 
     const peers = {};
-    const pendingCandidates = {};
+    const pending = {};
 
     let localStream = null;
     let ready = false;
@@ -13,7 +13,7 @@
     const ROOM = "main";
 
     // ─────────────────────────────
-    // START
+    // START CAMERA
     // ─────────────────────────────
 
     async function start() {
@@ -46,7 +46,6 @@
 
         peers[id] = pc;
 
-        // LOCAL STREAM (ВАЖНО: только если ready)
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
@@ -55,24 +54,28 @@
 
         pc.ontrack = (event) => {
 
-            let video = document.getElementById(`video-${id}`);
+            let wrapper = document.getElementById(`client-${id}`);
 
-            if (!video) {
+            if (!wrapper) {
 
-                const div = document.createElement("div");
-                div.className = "client";
-                div.id = `client-${id}`;
+                wrapper = document.createElement("div");
+                wrapper.className = "client";
+                wrapper.id = `client-${id}`;
 
-                video = document.createElement("video");
+                const video = document.createElement("video");
                 video.id = `video-${id}`;
                 video.autoplay = true;
                 video.playsInline = true;
 
-                div.appendChild(video);
-                container.appendChild(div);
+                wrapper.appendChild(video);
+                container.appendChild(wrapper);
             }
 
-            video.srcObject = event.streams[0];
+            const video = document.getElementById(`video-${id}`);
+
+            if (video && video.srcObject !== event.streams[0]) {
+                video.srcObject = event.streams[0];
+            }
         };
 
         pc.onicecandidate = (event) => {
@@ -96,7 +99,7 @@
     }
 
     // ─────────────────────────────
-    // REMOVE
+    // REMOVE PEER
     // ─────────────────────────────
 
     function removePeer(id) {
@@ -109,14 +112,14 @@
         const el = document.getElementById(`client-${id}`);
         if (el) el.remove();
 
-        delete pendingCandidates[id];
+        delete pending[id];
     }
 
     // ─────────────────────────────
     // USERS
     // ─────────────────────────────
 
-    socket.on("users", async (users) => {
+    socket.on("users", (users) => {
 
         if (!ready) return;
 
@@ -126,10 +129,8 @@
             if (id !== self) createPeer(id);
         });
 
-        // только первый инициирует
         if (users[0] !== self) return;
 
-        // ЖДЁМ СТАБИЛЬНОСТЬ STREAM
         setTimeout(async () => {
 
             for (const id of users) {
@@ -137,7 +138,6 @@
                 if (id === self) continue;
 
                 const pc = peers[id];
-
                 if (!pc) continue;
 
                 const offer = await pc.createOffer();
@@ -149,7 +149,7 @@
                 });
             }
 
-        }, 1500);
+        }, 1200);
     });
 
     // ─────────────────────────────
@@ -162,16 +162,6 @@
 
         await pc.setRemoteDescription(offer);
 
-        // обработка накопленных ICE
-        if (pendingCandidates[from]) {
-
-            for (const c of pendingCandidates[from]) {
-                await pc.addIceCandidate(c);
-            }
-
-            delete pendingCandidates[from];
-        }
-
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -179,6 +169,13 @@
             to: from,
             answer
         });
+
+        if (pending[from]) {
+            for (const c of pending[from]) {
+                await pc.addIceCandidate(c);
+            }
+            delete pending[from];
+        }
     });
 
     // ─────────────────────────────
@@ -194,7 +191,7 @@
     });
 
     // ─────────────────────────────
-    // CANDIDATE (КРИТИЧЕСКИ ИСПРАВЛЕНО)
+    // CANDIDATES
     // ─────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
@@ -203,11 +200,8 @@
 
         if (!pc || !pc.remoteDescription) {
 
-            if (!pendingCandidates[from]) {
-                pendingCandidates[from] = [];
-            }
-
-            pendingCandidates[from].push(candidate);
+            if (!pending[from]) pending[from] = [];
+            pending[from].push(candidate);
             return;
         }
 
