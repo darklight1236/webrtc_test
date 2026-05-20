@@ -12,14 +12,13 @@ app.use(express.static(path.join(__dirname)));
 io.on("connection", (socket) => {
 
     socket.on("join-room", (roomId) => {
+
         socket.join(roomId);
 
-        // отправляем список всех пользователей в комнате
         const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
 
         socket.emit("users", clients);
 
-        // уведомляем остальных
         socket.to(roomId).emit("user-joined", socket.id);
     });
 
@@ -33,6 +32,14 @@ io.on("connection", (socket) => {
 
     socket.on("candidate", ({ to, candidate }) => {
         io.to(to).emit("candidate", { from: socket.id, candidate });
+    });
+
+    socket.on("disconnect", () => {
+        for (const roomId of socket.rooms) {
+            if (roomId !== socket.id) {
+                socket.to(roomId).emit("user-left", socket.id);
+            }
+        }
     });
 
 });
