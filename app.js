@@ -26,6 +26,7 @@
         });
 
         pc.ontrack = (event) => {
+            console.log("TRACK RECEIVED", event);
             remoteVideo.srcObject = event.streams[0];
         };
 
