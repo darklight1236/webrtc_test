@@ -31,7 +31,7 @@
 
         localVideo.srcObject = localStream;
         document.getElementById("local-client").id = `client-${socket.id}`;
-        detectSpeaking(localStream, "local-client");
+        detectSpeaking(localStream, `client-${socket.id}`);
 
         socket.emit("join-room", {
             roomId,
