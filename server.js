@@ -1,67 +1,89 @@
 const express = require("express");
 const http = require("http");
-const path = require("path");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
+
 const server = http.createServer(app);
+
 const io = new Server(server);
 
-// ⚠️ важно: правильная статика
 app.use(express.static(path.join(__dirname)));
-
-const rooms = {
-    main: new Set()
-};
 
 io.on("connection", (socket) => {
 
-    console.log("CONNECTED:", socket.id);
-
-    socket.on("join-room", (roomId = "main") => {
+    socket.on("join-room", (roomId) => {
 
         socket.join(roomId);
 
-        if (!rooms[roomId]) rooms[roomId] = new Set();
+        const clients =
+            Array.from(
+                io.sockets.adapter.rooms.get(roomId) || []
+            );
 
-        rooms[roomId].add(socket.id);
+        socket.emit("users", clients);
 
-        const users = [...rooms[roomId]];
-
-        console.log("ROOM USERS:", users);
-
-        io.to(roomId).emit("users", users);
+        socket.to(roomId).emit(
+            "user-joined",
+            socket.id
+        );
     });
+
+    // OFFER
 
     socket.on("offer", ({ to, offer }) => {
-        io.to(to).emit("offer", { from: socket.id, offer });
+
+        io.to(to).emit("offer", {
+            from: socket.id,
+            offer
+        });
+
     });
+
+    // ANSWER
 
     socket.on("answer", ({ to, answer }) => {
-        io.to(to).emit("answer", { from: socket.id, answer });
+
+        io.to(to).emit("answer", {
+            from: socket.id,
+            answer
+        });
+
     });
 
+    // ICE
+
     socket.on("candidate", ({ to, candidate }) => {
-        io.to(to).emit("candidate", { from: socket.id, candidate });
+
+        io.to(to).emit("candidate", {
+            from: socket.id,
+            candidate
+        });
+
     });
+
+    // DISCONNECT
 
     socket.on("disconnect", () => {
 
-        console.log("LEFT:", socket.id);
+        for (const roomId of socket.rooms) {
 
-        for (const roomId in rooms) {
+            if (roomId !== socket.id) {
 
-            if (rooms[roomId].has(socket.id)) {
-
-                rooms[roomId].delete(socket.id);
-
-                io.to(roomId).emit("users", [...rooms[roomId]]);
-                io.to(roomId).emit("user-left", socket.id);
+                socket.to(roomId).emit(
+                    "user-left",
+                    socket.id
+                );
             }
         }
+
     });
+
 });
 
 server.listen(3000, () => {
-    console.log("SERVER RUNNING");
+
+    console.log("Server running on port 3000");
+
 });

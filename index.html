@@ -10,9 +10,24 @@
 <body>
 
     <div class="container">
-        <div class="client">
-            <video id="local" autoplay playsinline muted></video>
+
+        <!-- LOCAL USER -->
+
+        <div class="client" id="local-client">
+
+            <video
+                id="local"
+                autoplay
+                playsinline
+                muted
+            ></video>
+
+            <div class="username">
+                You
+            </div>
+
         </div>
+
     </div>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
