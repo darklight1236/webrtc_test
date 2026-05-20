@@ -548,7 +548,13 @@
             el.appendChild(img);
         }
 
-        img.style.display = isOff ? "block" : "none";
+        if (isOff) {
+            img.style.display = "block";
+            el.classList.add("camera-disabled");
+        } else {
+            img.style.display = "none";
+            el.classList.remove("camera-disabled");
+        }
     }
 
     start();
