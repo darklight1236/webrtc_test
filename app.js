@@ -81,7 +81,7 @@
 
             console.log(
                 "CONNECTION STATE:",
-                peer.connectionState
+                p.connectionState
             );
 
         };
@@ -90,7 +90,7 @@
 
             console.log(
                 "ICE STATE:",
-                peer.iceConnectionState
+                p.iceConnectionState
             );
 
         };
