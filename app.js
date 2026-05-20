@@ -1,16 +1,16 @@
 (() => {
 
-    const localVideo =
-        document.getElementById("local");
-
-    const container =
-        document.querySelector(".container");
-
     const socket = io();
 
     const roomId = "test-room";
 
-    let localStream = null;
+    const container =
+        document.querySelector(".container");
+
+    const localVideo =
+        document.getElementById("local");
+
+    let localStream;
 
     const peers = {};
 
@@ -30,7 +30,8 @@
 
             });
 
-        localVideo.srcObject = localStream;
+        localVideo.srcObject =
+            localStream;
 
         detectSpeaking(
             localStream,
@@ -49,25 +50,26 @@
 
     function createPeer(id) {
 
-        const pc = new RTCPeerConnection({
+        const pc =
+            new RTCPeerConnection({
 
-            iceServers: [
+                iceServers: [
 
-                {
-                    urls:
-                        "stun:stun.l.google.com:19302"
-                },
+                    {
+                        urls:
+                            "stun:stun.l.google.com:19302"
+                    },
 
-                {
-                    urls:
-                        "turn:82.26.150.172:3478?transport=tcp",
+                    {
+                        urls:
+                            "turn:82.26.150.172:3478?transport=tcp",
 
-                    username: "test",
+                        username: "test",
 
-                    credential: "test123"
-                }
-            ]
-        });
+                        credential: "test123"
+                    }
+                ]
+            });
 
         peers[id] = pc;
 
@@ -82,7 +84,7 @@
 
         });
 
-        // CLIENT CARD
+        // CREATE VIDEO CARD
 
         const client =
             document.createElement("div");
@@ -98,7 +100,7 @@
 
         video.playsInline = true;
 
-        video.id = id;
+        video.id = `video-${id}`;
 
         const username =
             document.createElement("div");
@@ -116,6 +118,8 @@
         // REMOTE TRACK
 
         pc.ontrack = (event) => {
+
+            console.log("TRACK:", id);
 
             video.srcObject =
                 event.streams[0];
@@ -148,6 +152,12 @@
 
         pc.onconnectionstatechange = () => {
 
+            console.log(
+                "STATE:",
+                id,
+                pc.connectionState
+            );
+
             if (
 
                 pc.connectionState === "failed" ||
@@ -171,16 +181,20 @@
 
     function cleanupPeer(id) {
 
+        console.log("REMOVE:", id);
+
         if (peers[id]) {
 
             peers[id].close();
 
             delete peers[id];
+
         }
 
         if (pendingCandidates[id]) {
 
             delete pendingCandidates[id];
+
         }
 
         const client =
@@ -194,7 +208,6 @@
 
         }
 
-        console.log("REMOVED:", id);
     }
 
     // ─────────────────────────────
@@ -203,11 +216,15 @@
 
     socket.on("users", async (users) => {
 
+        // Новый пользователь создаёт offer ВСЕМ старым
+
         for (const id of users) {
 
             if (id === socket.id) continue;
 
             if (peers[id]) continue;
+
+            console.log("CONNECT TO:", id);
 
             const pc = createPeer(id);
 
@@ -236,6 +253,8 @@
     // ─────────────────────────────
 
     socket.on("offer", async ({ from, offer }) => {
+
+        console.log("OFFER FROM:", from);
 
         if (!peers[from]) {
 
@@ -275,6 +294,8 @@
 
     socket.on("answer", async ({ from, answer }) => {
 
+        console.log("ANSWER FROM:", from);
+
         const pc = peers[from];
 
         if (!pc) return;
@@ -288,7 +309,7 @@
     });
 
     // ─────────────────────────────
-    // CANDIDATES
+    // ICE
     // ─────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {

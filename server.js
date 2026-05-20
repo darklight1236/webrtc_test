@@ -13,21 +13,21 @@ app.use(express.static(path.join(__dirname)));
 
 io.on("connection", (socket) => {
 
+    console.log("CONNECTED:", socket.id);
+
     socket.on("join-room", (roomId) => {
 
         socket.join(roomId);
 
-        const clients =
+        const users =
             Array.from(
                 io.sockets.adapter.rooms.get(roomId) || []
             );
 
-        socket.emit("users", clients);
+        // Отправляем новому пользователю список участников
 
-        socket.to(roomId).emit(
-            "user-joined",
-            socket.id
-        );
+        socket.emit("users", users);
+
     });
 
     // OFFER
@@ -35,8 +35,11 @@ io.on("connection", (socket) => {
     socket.on("offer", ({ to, offer }) => {
 
         io.to(to).emit("offer", {
+
             from: socket.id,
+
             offer
+
         });
 
     });
@@ -46,8 +49,11 @@ io.on("connection", (socket) => {
     socket.on("answer", ({ to, answer }) => {
 
         io.to(to).emit("answer", {
+
             from: socket.id,
+
             answer
+
         });
 
     });
@@ -57,8 +63,11 @@ io.on("connection", (socket) => {
     socket.on("candidate", ({ to, candidate }) => {
 
         io.to(to).emit("candidate", {
+
             from: socket.id,
+
             candidate
+
         });
 
     });
@@ -67,16 +76,9 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
 
-        for (const roomId of socket.rooms) {
+        console.log("DISCONNECTED:", socket.id);
 
-            if (roomId !== socket.id) {
-
-                socket.to(roomId).emit(
-                    "user-left",
-                    socket.id
-                );
-            }
-        }
+        io.emit("user-left", socket.id);
 
     });
 
@@ -84,6 +86,6 @@ io.on("connection", (socket) => {
 
 server.listen(3000, () => {
 
-    console.log("Server running on port 3000");
+    console.log("Server started on port 3000");
 
 });
