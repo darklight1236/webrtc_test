@@ -117,10 +117,18 @@
             delete pendingCandidates[id];
         }
 
-        const video = document.getElementById(id);
-        if (video) {
-            video.srcObject = null;
-            video.remove();
+
+        // ДЕНДЖЕРОС!!!! БИ КЭРЭФУЛ!
+        // const video = document.getElementById(id);
+        // if (video) {
+        //     video.srcObject = null;
+        //     video.remove();
+        // }
+
+        const client = document.getElementById(`client-${id}`);
+
+        if (client) {
+            client.remove();
         }
 
         console.log("CLEANED UP:", id);
