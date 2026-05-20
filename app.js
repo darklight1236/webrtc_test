@@ -25,7 +25,7 @@
 
             isReady = true;
 
-            socket.emit("join-room");
+            socket.emit("join-room", "main");
 
         } catch (e) {
 

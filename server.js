@@ -9,56 +9,70 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
-const users = new Set();
+const rooms = {
+    "main": new Set()
+};
 
 io.on("connection", (socket) => {
 
-    console.log("USER CONNECTED:", socket.id);
+    console.log("CONNECTED:", socket.id);
 
-    users.add(socket.id);
+    socket.on("join-room", (roomId = "main") => {
 
-    socket.emit("users", [...users]);
+        socket.join(roomId);
 
-    socket.broadcast.emit("user-joined", socket.id);
+        if (!rooms[roomId]) {
+            rooms[roomId] = new Set();
+        }
+
+        rooms[roomId].add(socket.id);
+
+        const users = [...rooms[roomId]];
+
+        console.log("ROOM USERS:", users);
+
+        // отправляем список ВСЕМ в комнате
+        io.to(roomId).emit("users", users);
+    });
 
     socket.on("offer", ({ to, offer }) => {
-
         io.to(to).emit("offer", {
             from: socket.id,
             offer
         });
-
     });
 
     socket.on("answer", ({ to, answer }) => {
-
         io.to(to).emit("answer", {
             from: socket.id,
             answer
         });
-
     });
 
     socket.on("candidate", ({ to, candidate }) => {
-
         io.to(to).emit("candidate", {
             from: socket.id,
             candidate
         });
-
     });
 
     socket.on("disconnect", () => {
 
-        console.log("USER LEFT:", socket.id);
+        console.log("LEFT:", socket.id);
 
-        users.delete(socket.id);
+        for (const roomId in rooms) {
 
-        io.emit("user-left", socket.id);
+            if (rooms[roomId].has(socket.id)) {
+
+                rooms[roomId].delete(socket.id);
+
+                io.to(roomId).emit("user-left", socket.id);
+            }
+        }
     });
 
 });
 
 server.listen(3000, () => {
-    console.log("SERVER RUNNING ON 3000");
+    console.log("SERVER RUNNING 3000");
 });
