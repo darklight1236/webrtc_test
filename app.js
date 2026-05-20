@@ -310,6 +310,7 @@
 
     const micBtn = document.getElementById("micBtn");
     const camBtn = document.getElementById("camBtn");
+    const leaveBtn = document.getElementById("leaveBtn");
 
     let micEnabled = true;
     let camEnabled = true;
@@ -340,6 +341,29 @@
         camBtn.classList.toggle("active", camEnabled);
     };
 
+    leaveBtn.onclick = () => {
+
+        // 1. отключаем стримы
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        // 2. закрываем все peer connections
+        Object.values(peers).forEach(pc => pc.close());
+
+        // 3. очищаем UI
+        document.querySelectorAll(".client").forEach(el => {
+            if (el.id !== "local-client") el.remove();
+        });
+
+        // 4. уведомляем сервер
+        socket.disconnect();
+
+        // 5. (опционально) закрыть вкладку
+        setTimeout(() => {
+            window.location.reload(); // безопаснее чем window.close()
+        }, 300);
+    };
 
     start();
 
