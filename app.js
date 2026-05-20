@@ -8,6 +8,7 @@
 
     let peer;
     let localStream;
+    let isCaller = false;
 
     function createPeer() {
 
@@ -52,8 +53,6 @@
 
         peer = createPeer();
 
-        socket.emit("join", roomId);
-
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
@@ -65,27 +64,33 @@
             peer.addTrack(track, localStream);
         });
 
+        socket.emit("join", roomId);
+
         setupSocket();
     }
 
     function setupSocket() {
 
-        socket.on("user-joined", async () => {
+        socket.on("role", async (role) => {
 
-            const offer = await peer.createOffer();
-            await peer.setLocalDescription(offer);
+            isCaller = role === "caller";
 
-            socket.emit("offer", {
-                offer,
-                roomId
-            });
+            console.log("ROLE:", role);
+
+            if (isCaller) {
+                createOffer();
+            }
+        });
+
+        socket.on("user-joined", () => {
+            console.log("USER JOINED");
         });
 
         socket.on("offer", async (offer) => {
 
-            await peer.setRemoteDescription(
-                new RTCSessionDescription(offer)
-            );
+            console.log("GOT OFFER");
+
+            await peer.setRemoteDescription(new RTCSessionDescription(offer));
 
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
@@ -98,22 +103,29 @@
 
         socket.on("answer", async (answer) => {
 
-            await peer.setRemoteDescription(
-                new RTCSessionDescription(answer)
-            );
+            console.log("GOT ANSWER");
 
+            await peer.setRemoteDescription(new RTCSessionDescription(answer));
         });
 
         socket.on("candidate", async (candidate) => {
 
             try {
-                await peer.addIceCandidate(
-                    new RTCIceCandidate(candidate)
-                );
+                await peer.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
                 console.error(e);
             }
+        });
+    }
 
+    async function createOffer() {
+
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+
+        socket.emit("offer", {
+            offer,
+            roomId
         });
     }
 
