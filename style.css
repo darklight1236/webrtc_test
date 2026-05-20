@@ -5,25 +5,134 @@
 }
 
 body{
-    background-color: black;
+
+    min-height: 100vh;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    background:
+        radial-gradient(circle at top left, #1d1d1d, #101010 40%),
+        radial-gradient(circle at bottom right, #161616, #090909 70%);
+
+    overflow-x: hidden;
 }
+
+/* ───────────────────────────── */
 
 .container{
-    display: flex;
+
     width: 100%;
-    height: 100vh;
-    justify-content: space-around;
+    min-height: 100vh;
+
+    display: flex;
+    flex-wrap: wrap;
+
+    justify-content: center;
     align-items: center;
+
+    gap: 20px;
+
+    padding: 20px;
 }
 
-.web_cam {
-    max-width: 1280px;
-    width: 100%;
-    max-height: 720px;
-    height: 100%;
-    border: 3px solid black;
-}
+/* ───────────────────────────── */
 
 .client{
-    width: 40%;
+
+    position: relative;
+
+    flex: 1 1 420px;
+
+    max-width: 700px;
+
+    aspect-ratio: 16 / 9;
+
+    border-radius: 24px;
+
+    overflow: hidden;
+
+    background: #111;
+
+    border: 3px solid transparent;
+
+    transition:
+        transform 0.25s ease,
+        border 0.2s ease,
+        box-shadow 0.25s ease;
+
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.45);
+}
+
+/* ───────────────────────────── */
+
+.client:hover{
+
+    transform: translateY(-4px);
+
+    box-shadow:
+        0 18px 40px rgba(0,0,0,0.55);
+}
+
+/* ───────────────────────────── */
+
+.client.speaking{
+
+    border: 3px solid #43ff64;
+
+    box-shadow:
+        0 0 25px rgba(67,255,100,0.45),
+        0 0 60px rgba(67,255,100,0.15);
+}
+
+/* ───────────────────────────── */
+
+video{
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    background: black;
+}
+
+/* ───────────────────────────── */
+
+.username{
+
+    position: absolute;
+
+    left: 14px;
+    bottom: 14px;
+
+    padding: 8px 12px;
+
+    border-radius: 12px;
+
+    background: rgba(0,0,0,0.45);
+
+    backdrop-filter: blur(10px);
+
+    color: white;
+
+    font-size: 14px;
+
+    font-weight: bold;
+}
+
+/* ───────────────────────────── */
+/* MOBILE */
+/* ───────────────────────────── */
+
+@media (max-width: 900px){
+
+    .container{
+        flex-direction: column;
+    }
+
+    .client{
+        width: 100%;
+        max-width: 100%;
+    }
 }

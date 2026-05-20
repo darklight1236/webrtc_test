@@ -3,16 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Room</title>
+    <title>crewlink - only v.i.p.</title>
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="container">
-        <div class="client">
-            <label>Local</label>
-            <video id="local" autoplay playsinline muted></video>
+
+        <!-- LOCAL USER -->
+
+        <div class="client" id="local-client">
+
+            <video
+                id="local"
+                autoplay
+                playsinline
+                muted
+            ></video>
+
+            <div class="username">
+                You
+            </div>
+
         </div>
+
     </div>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
