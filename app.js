@@ -55,11 +55,24 @@
         });
 
         // create video
+        const client = document.createElement("div");
+        client.className = "client";
+        client.id = `client-${id}`;
+
         const video = document.createElement("video");
+
         video.autoplay = true;
         video.playsInline = true;
         video.id = id;
-        container.appendChild(video);
+
+        const username = document.createElement("div");
+        username.className = "username";
+        username.innerText = "User";
+
+        client.appendChild(video);
+        client.appendChild(username);
+
+        container.appendChild(client);
 
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
