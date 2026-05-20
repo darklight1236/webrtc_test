@@ -361,7 +361,8 @@
 
         // 5. (опционально) закрыть вкладку
         setTimeout(() => {
-            window.location.reload(); // безопаснее чем window.close()
+            // window.location.reload(); // безопаснее чем window.close()
+            window.location.href = "/";
         }, 300);
     };
 
