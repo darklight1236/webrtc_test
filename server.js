@@ -1,4 +1,3 @@
-
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -8,26 +7,30 @@ const server = http.createServer(app);
 const io = new Server(server);
 const path = require("path");
 
-
-// app.use(express.static("public"));
 app.use(express.static(path.join(__dirname)));
+
+const rooms = {};
 
 io.on("connection", (socket) => {
 
-    console.log("USER:", socket.id);
+    console.log("USER CONNECTED:", socket.id);
 
     socket.on("join", (roomId) => {
 
-        const room = io.sockets.adapter.rooms.get(roomId);
-        const size = room ? room.size : 0;
-
         socket.join(roomId);
 
-        if (size === 0) {
+        if (!rooms[roomId]) {
+            rooms[roomId] = socket.id;
+
             socket.emit("role", "caller");
+            console.log("ROLE CALLER:", socket.id);
+
         } else {
+
             socket.emit("role", "callee");
             socket.to(roomId).emit("user-joined");
+
+            console.log("ROLE CALLEE:", socket.id);
         }
     });
 
@@ -41,6 +44,16 @@ io.on("connection", (socket) => {
 
     socket.on("candidate", ({ candidate, roomId }) => {
         socket.to(roomId).emit("candidate", candidate);
+    });
+
+    socket.on("disconnect", () => {
+
+        for (const roomId in rooms) {
+            if (rooms[roomId] === socket.id) {
+                delete rooms[roomId];
+            }
+        }
+
     });
 
 });
