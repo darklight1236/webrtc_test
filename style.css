@@ -294,3 +294,12 @@ video{
 .control-btn.presenting {
     background: #2d5cff;
 }
+
+.client.screen-active {
+    flex: 1 1 100%;
+    max-width: 100%;
+}
+
+.client.screen-active video {
+    height: 80vh;
+}

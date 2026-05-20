@@ -89,6 +89,8 @@
                 event.streams[0],
                 `client-${id}`
             );
+
+            setScreenFocus(id);
         };
 
         pc.onicecandidate = (event) => {
@@ -331,6 +333,22 @@
 
     let screenStream = null;
     let isScreenSharing = false;
+    let activeScreenId = null;
+
+    function setScreenFocus(id) {
+
+        document.querySelectorAll(".client").forEach(el => {
+            el.classList.remove("screen-active");
+        });
+
+        const el = document.getElementById(`client-${id}`);
+
+        if (el) {
+            el.classList.add("screen-active");
+        }
+
+        activeScreenId = id;
+    }
 
     // MIC
     micBtn.onclick = () => {
@@ -460,6 +478,10 @@
             screenStream.getTracks().forEach(t => t.stop());
             screenStream = null;
         }
+
+        document.querySelectorAll(".client").forEach(el => {
+            el.classList.remove("screen-active");
+        });
     }
 
     start();
