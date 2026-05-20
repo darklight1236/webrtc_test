@@ -1,20 +1,12 @@
 (() => {
 
     const socket = io();
-
-    const roomId = "main";
-
-    const container =
-        document.querySelector(".container");
-
-    const localVideo =
-        document.getElementById("local");
-
-    let localStream;
+    const container = document.querySelector(".container");
+    const localVideo = document.getElementById("local");
 
     const peers = {};
-
-    let isInitiator = false;
+    let localStream = null;
+    let isReady = false;
 
     // ─────────────────────────────
     // START
@@ -22,15 +14,23 @@
 
     async function start() {
 
-        localStream =
-            await navigator.mediaDevices.getUserMedia({
+        try {
+
+            localStream = await navigator.mediaDevices.getUserMedia({
                 video: true,
                 audio: true
             });
 
-        localVideo.srcObject = localStream;
+            localVideo.srcObject = localStream;
 
-        socket.emit("join-room", roomId);
+            isReady = true;
+
+            socket.emit("join-room");
+
+        } catch (e) {
+
+            console.error("CAMERA ERROR:", e);
+        }
     }
 
     // ─────────────────────────────
@@ -38,6 +38,11 @@
     // ─────────────────────────────
 
     function createPeer(id) {
+
+        if (!isReady) {
+            console.warn("WAITING FOR MEDIA");
+            return null;
+        }
 
         if (peers[id]) return peers[id];
 
@@ -49,32 +54,28 @@
 
         peers[id] = pc;
 
+        // 🔥 ВАЖНО: теперь localStream гарантирован
         localStream.getTracks().forEach(track => {
             pc.addTrack(track, localStream);
         });
 
         pc.ontrack = (event) => {
 
-            let video =
-                document.getElementById(`video-${id}`);
+            let video = document.getElementById(`video-${id}`);
 
             if (!video) {
 
-                const div =
-                    document.createElement("div");
+                const wrapper = document.createElement("div");
+                wrapper.className = "client";
+                wrapper.id = `client-${id}`;
 
-                div.className = "client";
-                div.id = `client-${id}`;
-
-                video =
-                    document.createElement("video");
-
+                video = document.createElement("video");
                 video.id = `video-${id}`;
                 video.autoplay = true;
                 video.playsInline = true;
 
-                div.appendChild(video);
-                container.appendChild(div);
+                wrapper.appendChild(video);
+                container.appendChild(wrapper);
             }
 
             video.srcObject = event.streams[0];
@@ -111,48 +112,47 @@
     function removePeer(id) {
 
         if (peers[id]) {
-
             peers[id].close();
             delete peers[id];
         }
 
-        const el =
-            document.getElementById(`client-${id}`);
-
+        const el = document.getElementById(`client-${id}`);
         if (el) el.remove();
     }
 
     // ─────────────────────────────
-    // USERS LIST (ВАЖНО ИСПРАВЛЕНИЕ)
+    // USERS
     // ─────────────────────────────
 
     socket.on("users", async (users) => {
 
-        // создаём всех peers заранее
-        users.forEach(id => {
+        if (!isReady) {
+            setTimeout(() => socket.emit("join-room"), 500);
+            return;
+        }
 
-            if (id !== socket.id) {
+        const selfId = socket.id;
+
+        users.forEach(id => {
+            if (id !== selfId) {
                 createPeer(id);
             }
         });
 
-        // только ПЕРВЫЙ пользователь создаёт offers
-        isInitiator =
-            users[0] === socket.id;
+        const initiator = users[0] === selfId;
 
-        if (!isInitiator) return;
+        if (!initiator) return;
 
         setTimeout(async () => {
 
             for (const id of users) {
 
-                if (id === socket.id) continue;
+                if (id === selfId) continue;
 
                 const pc = peers[id];
+                if (!pc) continue;
 
-                const offer =
-                    await pc.createOffer();
-
+                const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
 
                 socket.emit("offer", {
@@ -171,12 +171,11 @@
     socket.on("offer", async ({ from, offer }) => {
 
         const pc = createPeer(from);
+        if (!pc) return;
 
         await pc.setRemoteDescription(offer);
 
-        const answer =
-            await pc.createAnswer();
-
+        const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
         socket.emit("answer", {
@@ -192,7 +191,6 @@
     socket.on("answer", async ({ from, answer }) => {
 
         const pc = peers[from];
-
         if (!pc) return;
 
         await pc.setRemoteDescription(answer);
@@ -205,7 +203,6 @@
     socket.on("candidate", async ({ from, candidate }) => {
 
         const pc = peers[from];
-
         if (!pc) return;
 
         try {
