@@ -77,6 +77,11 @@
 
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
+
+            detectSpeaking(
+                event.streams[0],
+                `client-${id}`
+            );
         };
 
         pc.onicecandidate = (event) => {
