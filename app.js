@@ -12,9 +12,9 @@
 
     let localStream;
 
-    const peers = {};
+    // PEERS
 
-    const pendingCandidates = {};
+    const peers = {};
 
     // ─────────────────────────────
     // START
@@ -45,10 +45,92 @@
     }
 
     // ─────────────────────────────
+    // CREATE VIDEO CARD
+    // ─────────────────────────────
+
+    function createVideoCard(id) {
+
+        if (
+            document.getElementById(`client-${id}`)
+        ) {
+            return;
+        }
+
+        const client =
+            document.createElement("div");
+
+        client.className = "client";
+
+        client.id = `client-${id}`;
+
+        const video =
+            document.createElement("video");
+
+        video.autoplay = true;
+
+        video.playsInline = true;
+
+        video.id = `video-${id}`;
+
+        const username =
+            document.createElement("div");
+
+        username.className = "username";
+
+        username.innerText =
+            `User ${id.slice(0, 4)}`;
+
+        client.appendChild(video);
+
+        client.appendChild(username);
+
+        container.appendChild(client);
+    }
+
+    // ─────────────────────────────
+    // REMOVE USER
+    // ─────────────────────────────
+
+    function removePeer(id) {
+
+        console.log("REMOVE:", id);
+
+        if (peers[id]) {
+
+            peers[id].close();
+
+            delete peers[id];
+
+        }
+
+        const el =
+            document.getElementById(
+                `client-${id}`
+            );
+
+        if (el) {
+
+            el.remove();
+
+        }
+
+    }
+
+    // ─────────────────────────────
     // CREATE PEER
     // ─────────────────────────────
 
     function createPeer(id) {
+
+        if (peers[id]) {
+
+            return peers[id];
+
+        }
+
+        console.log("CREATE PEER:", id);
+
+        createVideoCard(id);
 
         const pc =
             new RTCPeerConnection({
@@ -84,50 +166,28 @@
 
         });
 
-        // CREATE VIDEO CARD
-
-        const client =
-            document.createElement("div");
-
-        client.className = "client";
-
-        client.id = `client-${id}`;
-
-        const video =
-            document.createElement("video");
-
-        video.autoplay = true;
-
-        video.playsInline = true;
-
-        video.id = `video-${id}`;
-
-        const username =
-            document.createElement("div");
-
-        username.className = "username";
-
-        username.innerText = "User";
-
-        client.appendChild(video);
-
-        client.appendChild(username);
-
-        container.appendChild(client);
-
         // REMOTE TRACK
 
         pc.ontrack = (event) => {
 
             console.log("TRACK:", id);
 
-            video.srcObject =
-                event.streams[0];
+            const video =
+                document.getElementById(
+                    `video-${id}`
+                );
 
-            detectSpeaking(
-                event.streams[0],
-                `client-${id}`
-            );
+            if (!video.srcObject) {
+
+                video.srcObject =
+                    event.streams[0];
+
+                detectSpeaking(
+                    event.streams[0],
+                    `client-${id}`
+                );
+            }
+
         };
 
         // ICE
@@ -140,7 +200,8 @@
 
                     to: id,
 
-                    candidate: event.candidate
+                    candidate:
+                        event.candidate
 
                 });
 
@@ -148,25 +209,25 @@
 
         };
 
-        // CONNECTION STATE
+        // STATE
 
         pc.onconnectionstatechange = () => {
 
             console.log(
-                "STATE:",
                 id,
                 pc.connectionState
             );
 
+            // НЕ удаляем disconnected
+            // иначе peer рушится
+            // при кратких reconnect
+
             if (
-
                 pc.connectionState === "failed" ||
-                pc.connectionState === "closed" ||
-                pc.connectionState === "disconnected"
-
+                pc.connectionState === "closed"
             ) {
 
-                cleanupPeer(id);
+                removePeer(id);
 
             }
 
@@ -176,55 +237,14 @@
     }
 
     // ─────────────────────────────
-    // CLEANUP
-    // ─────────────────────────────
-
-    function cleanupPeer(id) {
-
-        console.log("REMOVE:", id);
-
-        if (peers[id]) {
-
-            peers[id].close();
-
-            delete peers[id];
-
-        }
-
-        if (pendingCandidates[id]) {
-
-            delete pendingCandidates[id];
-
-        }
-
-        const client =
-            document.getElementById(
-                `client-${id}`
-            );
-
-        if (client) {
-
-            client.remove();
-
-        }
-
-    }
-
-    // ─────────────────────────────
     // USERS
     // ─────────────────────────────
 
     socket.on("users", async (users) => {
 
-        // Новый пользователь создаёт offer ВСЕМ старым
-
         for (const id of users) {
 
             if (id === socket.id) continue;
-
-            if (peers[id]) continue;
-
-            console.log("CONNECT TO:", id);
 
             const pc = createPeer(id);
 
@@ -254,37 +274,38 @@
 
     socket.on("offer", async ({ from, offer }) => {
 
-        console.log("OFFER FROM:", from);
+        console.log("OFFER:", from);
 
-        if (!peers[from]) {
-
+        const pc =
             createPeer(from);
 
+        try {
+
+            await pc.setRemoteDescription(
+                new RTCSessionDescription(offer)
+            );
+
+            const answer =
+                await pc.createAnswer();
+
+            await pc.setLocalDescription(
+                answer
+            );
+
+            socket.emit("answer", {
+
+                to: from,
+
+                answer:
+                    pc.localDescription
+
+            });
+
+        } catch (e) {
+
+            console.error(e);
+
         }
-
-        const pc = peers[from];
-
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(offer)
-        );
-
-        flushCandidates(from);
-
-        const answer =
-            await pc.createAnswer();
-
-        await pc.setLocalDescription(
-            answer
-        );
-
-        socket.emit("answer", {
-
-            to: from,
-
-            answer:
-                pc.localDescription
-
-        });
 
     });
 
@@ -294,17 +315,23 @@
 
     socket.on("answer", async ({ from, answer }) => {
 
-        console.log("ANSWER FROM:", from);
+        console.log("ANSWER:", from);
 
         const pc = peers[from];
 
         if (!pc) return;
 
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(answer)
-        );
+        try {
 
-        flushCandidates(from);
+            await pc.setRemoteDescription(
+                new RTCSessionDescription(answer)
+            );
+
+        } catch (e) {
+
+            console.error(e);
+
+        }
 
     });
 
@@ -317,21 +344,6 @@
         const pc = peers[from];
 
         if (!pc) return;
-
-        if (!pc.remoteDescription) {
-
-            if (!pendingCandidates[from]) {
-
-                pendingCandidates[from] = [];
-
-            }
-
-            pendingCandidates[from].push(
-                candidate
-            );
-
-            return;
-        }
 
         try {
 
@@ -348,38 +360,12 @@
     });
 
     // ─────────────────────────────
-    // FLUSH ICE
-    // ─────────────────────────────
-
-    function flushCandidates(id) {
-
-        const pc = peers[id];
-
-        if (!pc) return;
-
-        if (pendingCandidates[id]) {
-
-            for (const candidate of pendingCandidates[id]) {
-
-                pc.addIceCandidate(
-                    new RTCIceCandidate(candidate)
-                );
-
-            }
-
-            pendingCandidates[id] = [];
-
-        }
-
-    }
-
-    // ─────────────────────────────
     // USER LEFT
     // ─────────────────────────────
 
     socket.on("user-left", (id) => {
 
-        cleanupPeer(id);
+        removePeer(id);
 
     });
 
