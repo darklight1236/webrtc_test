@@ -150,12 +150,16 @@ video{
     display: flex;
     gap: 14px;
 
-    padding: 10px 14px;
+    padding: 12px 16px;
 
-    background: rgba(20,20,20,0.6);
-    backdrop-filter: blur(12px);
+    background: rgba(25, 25, 25, 0.85); /* тёмно-серый фон */
+    backdrop-filter: blur(14px);
 
-    border-radius: 20px;
+    border-radius: 18px;
+
+    border: 1px solid rgba(255, 255, 255, 0.06);
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
 /* ───────────────────────────── */
@@ -167,9 +171,8 @@ video{
     border-radius: 14px;
 
     border: none;
-    outline: none;
 
-    background: #2a2a2a;
+    background: #2b2b2b;
     color: white;
 
     font-size: 18px;
@@ -178,7 +181,6 @@ video{
 
     transition: 0.2s ease;
 }
-
 /* ───────────────────────────── */
 
 .control-btn:hover {
