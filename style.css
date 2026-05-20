@@ -144,22 +144,16 @@ video{
 .controls {
     position: fixed;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+
+    left: 0;
+    right: 0;
 
     display: flex;
-    gap: 14px;
+    justify-content: center;
 
-    padding: 12px 16px;
+    padding: 0 20px;
 
-    background: rgba(25, 25, 25, 0.85); /* тёмно-серый фон */
-    backdrop-filter: blur(14px);
-
-    border-radius: 18px;
-
-    border: 1px solid rgba(255, 255, 255, 0.06);
-
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    z-index: 1000;
 }
 
 /* ───────────────────────────── */
@@ -247,4 +241,31 @@ video{
 .join-btn:hover {
     background: #3a3a3a;
     transform: scale(1.05);
+}
+
+.controls-panel {
+    display: flex;
+    gap: 14px;
+
+    padding: 12px 16px;
+
+    background: rgba(25, 25, 25, 0.85);
+    backdrop-filter: blur(14px);
+
+    border-radius: 18px;
+
+    border: 1px solid rgba(255, 255, 255, 0.06);
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 500px) {
+    .controls-panel {
+        width: 90%;
+        justify-content: space-around;
+    }
+
+    body {
+        height: 100dvh;
+    }
 }
