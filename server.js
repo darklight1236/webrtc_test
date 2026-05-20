@@ -1,37 +1,22 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const path = require("path");
 
+// ✔ как ты просил
 app.use(express.static(path.join(__dirname)));
-
-const rooms = {};
 
 io.on("connection", (socket) => {
 
     console.log("USER CONNECTED:", socket.id);
 
     socket.on("join", (roomId) => {
-
         socket.join(roomId);
-
-        if (!rooms[roomId]) {
-            rooms[roomId] = socket.id;
-
-            socket.emit("role", "caller");
-            console.log("ROLE CALLER:", socket.id);
-
-        } else {
-
-            socket.emit("role", "callee");
-            socket.to(roomId).emit("user-joined");
-
-            console.log("ROLE CALLEE:", socket.id);
-        }
+        socket.to(roomId).emit("user-joined");
     });
 
     socket.on("offer", ({ offer, roomId }) => {
@@ -44,16 +29,6 @@ io.on("connection", (socket) => {
 
     socket.on("candidate", ({ candidate, roomId }) => {
         socket.to(roomId).emit("candidate", candidate);
-    });
-
-    socket.on("disconnect", () => {
-
-        for (const roomId in rooms) {
-            if (rooms[roomId] === socket.id) {
-                delete rooms[roomId];
-            }
-        }
-
     });
 
 });

@@ -8,26 +8,19 @@
 
     let peer;
     let localStream;
-    let isCaller = false;
 
     function createPeer() {
 
         const pc = new RTCPeerConnection({
             iceServers: [
-                {
-                    urls: "stun:stun.l.google.com:19302"
-                },
-                {
-                    urls: "turn:82.26.150.172:3478",
-                    username: "test",
-                    credential: "test123"
-                }
+                { urls: "stun:stun.l.google.com:19302" }
             ]
         });
 
         pc.ontrack = (event) => {
-            console.log("TRACK RECEIVED", event);
+            console.log("TRACK RECEIVED");
             remoteVideo.srcObject = event.streams[0];
+            remoteVideo.play().catch(()=>{});
         };
 
         pc.onicecandidate = (event) => {
@@ -54,6 +47,7 @@
 
         peer = createPeer();
 
+        // 1. камера
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
@@ -61,10 +55,12 @@
 
         localVideo.srcObject = localStream;
 
+        // 2. ВАЖНО: addTrack ДО любых signaling действий
         localStream.getTracks().forEach(track => {
             peer.addTrack(track, localStream);
         });
 
+        // 3. join только после готовности stream
         socket.emit("join", roomId);
 
         setupSocket();
@@ -72,26 +68,24 @@
 
     function setupSocket() {
 
-        socket.on("role", async (role) => {
+        socket.on("user-joined", async () => {
+            console.log("USER JOINED → creating offer");
 
-            isCaller = role === "caller";
+            const offer = await peer.createOffer();
+            await peer.setLocalDescription(offer);
 
-            console.log("ROLE:", role);
-
-            if (isCaller) {
-                createOffer();
-            }
-        });
-
-        socket.on("user-joined", () => {
-            console.log("USER JOINED");
+            socket.emit("offer", {
+                offer,
+                roomId
+            });
         });
 
         socket.on("offer", async (offer) => {
-
             console.log("GOT OFFER");
 
-            await peer.setRemoteDescription(new RTCSessionDescription(offer));
+            await peer.setRemoteDescription(
+                new RTCSessionDescription(offer)
+            );
 
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
@@ -103,30 +97,21 @@
         });
 
         socket.on("answer", async (answer) => {
-
             console.log("GOT ANSWER");
 
-            await peer.setRemoteDescription(new RTCSessionDescription(answer));
+            await peer.setRemoteDescription(
+                new RTCSessionDescription(answer)
+            );
         });
 
         socket.on("candidate", async (candidate) => {
-
             try {
-                await peer.addIceCandidate(new RTCIceCandidate(candidate));
+                await peer.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                );
             } catch (e) {
                 console.error(e);
             }
-        });
-    }
-
-    async function createOffer() {
-
-        const offer = await peer.createOffer();
-        await peer.setLocalDescription(offer);
-
-        socket.emit("offer", {
-            offer,
-            roomId
         });
     }
 
