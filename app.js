@@ -16,18 +16,29 @@
 
         const p = new RTCPeerConnection({
 
-            iceServers: [
+            // iceServers: [
+            //     {
+            //         urls: "stun:stun.l.google.com:19302"
+            //     },
+            //     {
+            //         urls: "turn:82.26.150.172:3478",
+            //         username: "test",
+            //         credential: "test123"
+            //     }
+            // ]
 
+            iceServers: [
                 {
                     urls: "stun:stun.l.google.com:19302"
                 },
-
                 {
-                    urls: "turn:crewlink.ru:3478",
+                    urls: [
+                        "turn:82.26.150.172:3478?transport=udp",
+                        "turn:82.26.150.172:3478?transport=tcp"
+                    ],
                     username: "test",
                     credential: "test123"
                 }
-
             ]
 
         });
