@@ -41,7 +41,7 @@
     // CREATE PEER
     // ───────────────────────────────
 
-    function createPeer(id) {
+    function createPeer(id, name) {
 
         const pc = new RTCPeerConnection({
             iceServers: [
@@ -74,7 +74,7 @@
 
         const username = document.createElement("div");
         username.className = "username";
-        username.innerText = myName;
+        username.innerText = name || "User";
 
         client.appendChild(video);
         client.appendChild(username);
@@ -153,7 +153,9 @@
 
         if (!streamReady) return;
 
-        users.forEach(id => {
+        users.forEach(user => {
+
+            const { id, name } = user;
 
             if (id === socket.id) return;
             if (peers[id]) return;
@@ -168,7 +170,6 @@
                         offer: pc.localDescription
                     });
                 });
-
         });
     });
 

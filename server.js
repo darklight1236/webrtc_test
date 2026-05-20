@@ -17,10 +17,15 @@ io.on("connection", (socket) => {
 
         socket.data.name = name;
 
-        // отправляем новому список уже существующих
         const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
 
-        socket.emit("users", clients);
+        // отправляем новому ВСЕХ пользователей с именами
+        const users = clients.map(id => ({
+            id,
+            name: io.sockets.sockets.get(id)?.data?.name || "User"
+        }));
+
+        socket.emit("users", users);
 
         // сообщаем другим о новом пользователе
         socket.to(roomId).emit("user-joined", {
