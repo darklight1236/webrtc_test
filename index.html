@@ -2,52 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>crewlink - only v.i.p.</title>
-
+    <title>Crewlink</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="lobby-body">
 
-    <div class="container">
+    <div class="lobby">
+        <h1>Crewlink</h1>
 
-        <!-- LOCAL USER -->
-
-        <div class="client" id="local-client">
-
-            <video
-                id="local"
-                autoplay
-                playsinline
-                muted
-            ></video>
-
-            <div class="username">
-                You
-            </div>
-
-        </div>
-
-        <div class="controls">
-
-            <button id="micBtn" class="control-btn active">
-                🎤
-            </button>
-
-            <button id="camBtn" class="control-btn active">
-                📷
-            </button>
-
-            <button id="leaveBtn" class="control-btn leave">
-                ⛔
-            </button>
-
-        </div>
-
+        <button id="joinBtn" class="join-btn">
+            Подключиться
+        </button>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="app.js"></script>
+    <script>
+        document.getElementById("joinBtn").onclick = () => {
+            window.location.href = "/chat.html";
+        };
+    </script>
 
 </body>
 </html>

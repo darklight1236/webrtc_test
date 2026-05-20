@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>crewlink - only v.i.p.</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- LOCAL USER -->
+
+        <div class="client" id="local-client">
+
+            <video
+                id="local"
+                autoplay
+                playsinline
+                muted
+            ></video>
+
+            <div class="username">
+                You
+            </div>
+
+        </div>
+
+        <div class="controls">
+
+            <button id="micBtn" class="control-btn active">
+                🎤
+            </button>
+
+            <button id="camBtn" class="control-btn active">
+                📷
+            </button>
+
+            <button id="leaveBtn" class="control-btn leave">
+                ⛔
+            </button>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>

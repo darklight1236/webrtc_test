@@ -206,3 +206,43 @@ video{
     background: #ff1744;
     transform: scale(1.05);
 }
+
+.lobby-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+
+    background: radial-gradient(circle at top, #1a1a1a, #0a0a0a);
+    font-family: Arial;
+}
+
+.lobby {
+    text-align: center;
+    color: white;
+}
+
+.lobby h1 {
+    margin-bottom: 20px;
+    font-size: 40px;
+}
+
+.join-btn {
+    padding: 14px 26px;
+    border-radius: 14px;
+
+    border: none;
+    cursor: pointer;
+
+    background: #2a2a2a;
+    color: white;
+
+    font-size: 16px;
+
+    transition: 0.2s;
+}
+
+.join-btn:hover {
+    background: #3a3a3a;
+    transform: scale(1.05);
+}
