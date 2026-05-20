@@ -4,13 +4,17 @@
     const container = document.querySelector(".container");
 
     const socket = io();
-
     const roomId = "test-room";
 
-    let localStream;
-    const peers = {}; // socketId → RTCPeerConnection
+    let localStream = null;
+    let streamReady = false;
 
-    socket.emit("join-room", roomId);
+    const peers = {};
+    const pendingCandidates = {};
+
+    // ───────────────────────────────
+    // START
+    // ───────────────────────────────
 
     async function start() {
 
@@ -19,22 +23,18 @@
             audio: true
         });
 
+        streamReady = true;
+
         localVideo.srcObject = localStream;
+
+        socket.emit("join-room", roomId);
     }
 
-    socket.on("users", (users) => {
+    // ───────────────────────────────
+    // CREATE PEER
+    // ───────────────────────────────
 
-        users.forEach(id => {
-
-            if (id === socket.id) return;
-            if (peers[id]) return;
-
-            createPeer(id, true);
-        });
-
-    });
-
-    function createPeer(id, initiator) {
+    function createPeer(id) {
 
         const pc = new RTCPeerConnection({
             iceServers: [
@@ -49,12 +49,12 @@
 
         peers[id] = pc;
 
-        // local tracks
+        // add tracks (ВАЖНО: stream уже должен быть готов)
         localStream.getTracks().forEach(track => {
             pc.addTrack(track, localStream);
         });
 
-        // remote video element
+        // video element
         const video = document.createElement("video");
         video.autoplay = true;
         video.playsInline = true;
@@ -74,21 +74,57 @@
             }
         };
 
-        if (initiator) {
-            pc.createOffer().then(offer => {
-                pc.setLocalDescription(offer);
-                socket.emit("offer", { to: id, offer });
-            });
-        }
-
         return pc;
     }
 
+    // ───────────────────────────────
+    // USERS LIST
+    // ───────────────────────────────
+
+    socket.on("users", (users) => {
+
+        if (!streamReady) return;
+
+        users.forEach(id => {
+
+            if (id === socket.id) return;
+            if (peers[id]) return;
+
+            const pc = createPeer(id);
+
+            pc.createOffer()
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                    socket.emit("offer", {
+                        to: id,
+                        offer: pc.localDescription
+                    });
+                });
+
+        });
+    });
+
+    // ───────────────────────────────
+    // OFFER
+    // ───────────────────────────────
+
     socket.on("offer", async ({ from, offer }) => {
 
-        const pc = createPeer(from, false);
+        if (!peers[from]) {
+            createPeer(from);
+        }
 
-        await pc.setRemoteDescription(offer);
+        const pc = peers[from];
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+        // flush ICE
+        if (pendingCandidates[from]) {
+            for (const c of pendingCandidates[from]) {
+                await pc.addIceCandidate(new RTCIceCandidate(c));
+            }
+            pendingCandidates[from] = [];
+        }
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -99,16 +135,45 @@
         });
     });
 
+    // ───────────────────────────────
+    // ANSWER
+    // ───────────────────────────────
+
     socket.on("answer", async ({ from, answer }) => {
 
-        await peers[from].setRemoteDescription(answer);
+        const pc = peers[from];
+
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+        if (pendingCandidates[from]) {
+            for (const c of pendingCandidates[from]) {
+                await pc.addIceCandidate(new RTCIceCandidate(c));
+            }
+            pendingCandidates[from] = [];
+        }
     });
+
+    // ───────────────────────────────
+    // CANDIDATES
+    // ───────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
 
-        if (peers[from]) {
-            await peers[from].addIceCandidate(candidate);
+        const pc = peers[from];
+
+        if (!pc) return;
+
+        if (!pc.remoteDescription) {
+
+            if (!pendingCandidates[from]) {
+                pendingCandidates[from] = [];
+            }
+
+            pendingCandidates[from].push(candidate);
+            return;
         }
+
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
     start();

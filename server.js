@@ -9,20 +9,18 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
-const users = {};
-
 io.on("connection", (socket) => {
 
     socket.on("join-room", (roomId) => {
-
-        if (!users[roomId]) users[roomId] = [];
-
-        users[roomId].push(socket.id);
-
         socket.join(roomId);
 
         // отправляем список всех пользователей в комнате
-        io.to(roomId).emit("users", users[roomId]);
+        const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+
+        socket.emit("users", clients);
+
+        // уведомляем остальных
+        socket.to(roomId).emit("user-joined", socket.id);
     });
 
     socket.on("offer", ({ to, offer }) => {
@@ -37,14 +35,8 @@ io.on("connection", (socket) => {
         io.to(to).emit("candidate", { from: socket.id, candidate });
     });
 
-    socket.on("disconnect", () => {
-        for (const roomId in users) {
-            users[roomId] = users[roomId].filter(id => id !== socket.id);
-        }
-    });
-
 });
 
 server.listen(3000, () => {
-    console.log("Server running");
+    console.log("Server running on 3000");
 });
