@@ -2,10 +2,6 @@
 
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
-    
-
-    const params = new URLSearchParams(window.location.search);
-    const myName = params.get("name") || "User";
 
     const socket = io();
     const roomId = "test-room";
@@ -16,9 +12,28 @@
     const peers = {};
     const pendingCandidates = {};
 
-    // ───────────────────────────────
+    // ─────────────────────────────
+    // FULLSCREEN
+    // ─────────────────────────────
+
+    function openFullscreen(el) {
+
+        if (!el) return;
+
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } 
+        else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+        } 
+        else if (el.msRequestFullscreen) {
+            el.msRequestFullscreen();
+        }
+    }
+
+    // ─────────────────────────────
     // START STREAM
-    // ───────────────────────────────
+    // ─────────────────────────────
 
     async function start() {
 
@@ -30,39 +45,33 @@
         streamReady = true;
 
         localVideo.srcObject = localStream;
-        detectSpeaking(localStream, "local-client");
 
-        socket.emit("join-room", {
-            roomId,
-            name: myName
-        });
+        localVideo.onclick = () => {
+            openFullscreen(localVideo);
+        };
+
+        socket.emit("join-room", roomId);
     }
 
-    // ───────────────────────────────
+    // ─────────────────────────────
     // CREATE PEER
-    // ───────────────────────────────
+    // ─────────────────────────────
 
-    function createPeer(id, name) {
+    function createPeer(id) {
 
         const pc = new RTCPeerConnection({
             iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                {
-                    urls: "turn:82.26.150.172:3478",
-                    username: "test",
-                    credential: "test123"
-                }
+                { urls: "stun:stun.l.google.com:19302" }
             ]
         });
 
         peers[id] = pc;
 
-        // local tracks
         localStream.getTracks().forEach(track => {
             pc.addTrack(track, localStream);
         });
 
-        // create video
+        // UI
         const client = document.createElement("div");
         client.className = "client";
         client.id = `client-${id}`;
@@ -71,40 +80,22 @@
 
         video.autoplay = true;
         video.playsInline = true;
-        video.id = id;
 
+        // FULLSCREEN ON CLICK
         video.onclick = () => {
-
-            const el = document.getElementById(`client-${id}`);
-
-            if (!el) return;
-
-            if (el.classList.contains("screen-active")) {
-                el.classList.remove("screen-active");
-                activeScreenId = null;
-            } else {
-                setScreenFocus(id);
-            }
+            openFullscreen(video);
         };
 
         const username = document.createElement("div");
         username.className = "username";
-        username.innerText = name || "User";
+        username.innerText = "User";
 
         client.appendChild(video);
         client.appendChild(username);
-
         container.appendChild(client);
 
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
-
-            detectSpeaking(
-                event.streams[0],
-                `client-${id}`
-            );
-
-            setScreenFocus(id);
         };
 
         pc.onicecandidate = (event) => {
@@ -130,9 +121,9 @@
         return pc;
     }
 
-    // ───────────────────────────────
-    // CLEANUP PEER
-    // ───────────────────────────────
+    // ─────────────────────────────
+    // CLEANUP
+    // ─────────────────────────────
 
     function cleanupPeer(id) {
 
@@ -141,43 +132,29 @@
             delete peers[id];
         }
 
-        if (pendingCandidates[id]) {
-            delete pendingCandidates[id];
-        }
-
-
-        // ДЕНДЖЕРОС!!!! БИ КЭРЭФУЛ!
-        // const video = document.getElementById(id);
-        // if (video) {
-        //     video.srcObject = null;
-        //     video.remove();
-        // }
-
         const client = document.getElementById(`client-${id}`);
 
         if (client) {
             client.remove();
         }
 
-        console.log("CLEANED UP:", id);
+        console.log("CLEANED:", id);
     }
 
-    // ───────────────────────────────
-    // USERS
-    // ───────────────────────────────
+    // ─────────────────────────────
+    // USERS LIST
+    // ─────────────────────────────
 
     socket.on("users", (users) => {
 
         if (!streamReady) return;
 
-        users.forEach(user => {
-
-            const { id, name } = user;
+        users.forEach(id => {
 
             if (id === socket.id) return;
             if (peers[id]) return;
 
-            const pc = createPeer(id, name);
+            const pc = createPeer(id);
 
             pc.createOffer()
                 .then(o => pc.setLocalDescription(o))
@@ -187,12 +164,13 @@
                         offer: pc.localDescription
                     });
                 });
+
         });
     });
 
-    // ───────────────────────────────
+    // ─────────────────────────────
     // OFFER
-    // ───────────────────────────────
+    // ─────────────────────────────
 
     socket.on("offer", async ({ from, offer }) => {
 
@@ -215,9 +193,9 @@
         });
     });
 
-    // ───────────────────────────────
+    // ─────────────────────────────
     // ANSWER
-    // ───────────────────────────────
+    // ─────────────────────────────
 
     socket.on("answer", async ({ from, answer }) => {
 
@@ -230,9 +208,9 @@
         flushCandidates(from);
     });
 
-    // ───────────────────────────────
+    // ─────────────────────────────
     // ICE
-    // ───────────────────────────────
+    // ─────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
 
@@ -250,16 +228,8 @@
             return;
         }
 
-        try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-            console.error(e);
-        }
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
     });
-
-    // ───────────────────────────────
-    // FLUSH ICE QUEUE
-    // ───────────────────────────────
 
     function flushCandidates(id) {
 
@@ -274,224 +244,13 @@
         }
     }
 
-    // ───────────────────────────────
+    // ─────────────────────────────
     // USER LEFT
-    // ───────────────────────────────
+    // ─────────────────────────────
 
     socket.on("user-left", (id) => {
         cleanupPeer(id);
     });
-
-    socket.on("user-joined", ({ id, name }) => {
-        console.log(name + " joined");
-        createPeer(id, name);
-    });
-
-    function detectSpeaking(stream, clientId) {
-
-    const audioContext = new AudioContext();
-
-    const analyser = audioContext.createAnalyser();
-
-    const microphone =
-        audioContext.createMediaStreamSource(stream);
-
-    const dataArray =
-        new Uint8Array(analyser.fftSize);
-
-    microphone.connect(analyser);
-
-    function checkAudio() {
-
-        analyser.getByteTimeDomainData(dataArray);
-
-        let volume = 0;
-
-        for (let i = 0; i < dataArray.length; i++) {
-
-            volume += Math.abs(dataArray[i] - 128);
-        }
-
-        const speaking = volume > 2500;
-
-        const client = document.getElementById(clientId);
-
-        if (client) {
-
-            if (speaking) {
-                client.classList.add("speaking");
-            } else {
-                client.classList.remove("speaking");
-            }
-        }
-
-        requestAnimationFrame(checkAudio);
-    }
-
-    checkAudio();
-}
-
-
-    // micro\video on\off button
-    // ───────────────────────────────
-    // CONTROLS
-    // ───────────────────────────────
-
-    const micBtn = document.getElementById("micBtn");
-    const camBtn = document.getElementById("camBtn");
-    const leaveBtn = document.getElementById("leaveBtn");
-    const screenBtn = document.getElementById("screenBtn");
-
-    let micEnabled = true;
-    let camEnabled = true;
-
-    let screenStream = null;
-    let isScreenSharing = false;
-
-    // MIC
-    micBtn.onclick = () => {
-
-        micEnabled = !micEnabled;
-
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-        });
-
-        micBtn.classList.toggle("off", !micEnabled);
-        micBtn.classList.toggle("active", micEnabled);
-    };
-
-    // CAMERA
-    camBtn.onclick = () => {
-
-        camEnabled = !camEnabled;
-
-        localStream.getVideoTracks().forEach(track => {
-            track.enabled = camEnabled;
-        });
-
-        camBtn.classList.toggle("off", !camEnabled);
-        camBtn.classList.toggle("active", camEnabled);
-    };
-
-    leaveBtn.onclick = () => {
-
-        // 1. отключаем стримы
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-
-        // 2. закрываем все peer connections
-        Object.values(peers).forEach(pc => pc.close());
-
-        // 3. очищаем UI
-        document.querySelectorAll(".client").forEach(el => {
-            if (el.id !== "local-client") el.remove();
-        });
-
-        // 4. уведомляем сервер
-        socket.disconnect();
-
-        // 5. (опционально) закрыть вкладку
-        setTimeout(() => {
-            // window.location.reload(); // безопаснее чем window.close()
-            window.location.href = "/";
-        }, 300);
-    };
-
-    // SCREEN ON
-    screenBtn.onclick = async () => {
-
-        try {
-
-            if (!isScreenSharing) {
-
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: false
-                });
-
-                const videoTrack = screenStream.getVideoTracks()[0];
-
-                Object.values(peers).forEach(pc => {
-
-                    const sender = pc.getSenders().find(s =>
-                        s.track && s.track.kind === "video"
-                    );
-
-                    if (sender && videoTrack) {
-                        sender.replaceTrack(videoTrack);
-                    }
-
-                });
-
-                localVideo.srcObject = screenStream;
-
-                isScreenSharing = true;
-                screenBtn.classList.add("presenting");
-
-                // авто стоп если пользователь нажал "Stop sharing"
-                videoTrack.onended = stopScreenShare;
-            }
-
-            else {
-                stopScreenShare();
-            }
-
-        } catch (err) {
-            console.error("SCREEN SHARE ERROR:", err);
-        }
-    };
-
-    async function stopScreenShare() {
-
-        if (!localStream) return;
-
-        const cameraTrack = localStream.getVideoTracks()[0];
-
-        Object.values(peers).forEach(pc => {
-
-            const sender = pc.getSenders().find(s =>
-                s.track && s.track.kind === "video"
-            );
-
-            if (sender && cameraTrack) {
-                sender.replaceTrack(cameraTrack);
-            }
-
-        });
-
-        localVideo.srcObject = localStream;
-
-        isScreenSharing = false;
-        screenBtn.classList.remove("presenting");
-
-        if (screenStream) {
-            screenStream.getTracks().forEach(t => t.stop());
-            screenStream = null;
-        }
-
-        // убрать фокус экрана
-        document.querySelectorAll(".client").forEach(el => {
-            el.classList.remove("screen-active");
-        });
-    }
-
-    let activeScreenId = null;
-
-    function setScreenFocus(id) {
-
-        document.querySelectorAll(".client").forEach(el => {
-            el.classList.remove("screen-active");
-        });
-
-        const el = document.getElementById(`client-${id}`);
-
-        if (el) {
-            el.classList.add("screen-active");
-            activeScreenId = id;
-        }
-    }
 
     start();
 
