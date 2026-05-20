@@ -5,8 +5,12 @@
     const localVideo = document.getElementById("local");
 
     const peers = {};
+    const pendingCandidates = {};
+
     let localStream = null;
-    let isReady = false;
+    let ready = false;
+
+    const ROOM = "main";
 
     // ─────────────────────────────
     // START
@@ -14,23 +18,16 @@
 
     async function start() {
 
-        try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
 
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
+        localVideo.srcObject = localStream;
 
-            localVideo.srcObject = localStream;
+        ready = true;
 
-            isReady = true;
-
-            socket.emit("join-room", "main");
-
-        } catch (e) {
-
-            console.error("CAMERA ERROR:", e);
-        }
+        socket.emit("join-room", ROOM);
     }
 
     // ─────────────────────────────
@@ -38,11 +35,6 @@
     // ─────────────────────────────
 
     function createPeer(id) {
-
-        if (!isReady) {
-            console.warn("WAITING FOR MEDIA");
-            return null;
-        }
 
         if (peers[id]) return peers[id];
 
@@ -54,10 +46,12 @@
 
         peers[id] = pc;
 
-        // 🔥 ВАЖНО: теперь localStream гарантирован
-        localStream.getTracks().forEach(track => {
-            pc.addTrack(track, localStream);
-        });
+        // LOCAL STREAM (ВАЖНО: только если ready)
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                pc.addTrack(track, localStream);
+            });
+        }
 
         pc.ontrack = (event) => {
 
@@ -65,17 +59,17 @@
 
             if (!video) {
 
-                const wrapper = document.createElement("div");
-                wrapper.className = "client";
-                wrapper.id = `client-${id}`;
+                const div = document.createElement("div");
+                div.className = "client";
+                div.id = `client-${id}`;
 
                 video = document.createElement("video");
                 video.id = `video-${id}`;
                 video.autoplay = true;
                 video.playsInline = true;
 
-                wrapper.appendChild(video);
-                container.appendChild(wrapper);
+                div.appendChild(video);
+                container.appendChild(div);
             }
 
             video.srcObject = event.streams[0];
@@ -83,21 +77,17 @@
 
         pc.onicecandidate = (event) => {
 
-            if (event.candidate) {
+            if (!event.candidate) return;
 
-                socket.emit("candidate", {
-                    to: id,
-                    candidate: event.candidate
-                });
-            }
+            socket.emit("candidate", {
+                to: id,
+                candidate: event.candidate
+            });
         };
 
         pc.onconnectionstatechange = () => {
 
-            if (
-                pc.connectionState === "failed" ||
-                pc.connectionState === "closed"
-            ) {
+            if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
                 removePeer(id);
             }
         };
@@ -106,7 +96,7 @@
     }
 
     // ─────────────────────────────
-    // REMOVE PEER
+    // REMOVE
     // ─────────────────────────────
 
     function removePeer(id) {
@@ -118,6 +108,8 @@
 
         const el = document.getElementById(`client-${id}`);
         if (el) el.remove();
+
+        delete pendingCandidates[id];
     }
 
     // ─────────────────────────────
@@ -126,30 +118,26 @@
 
     socket.on("users", async (users) => {
 
-        if (!isReady) {
-            setTimeout(() => socket.emit("join-room"), 500);
-            return;
-        }
+        if (!ready) return;
 
-        const selfId = socket.id;
+        const self = socket.id;
 
         users.forEach(id => {
-            if (id !== selfId) {
-                createPeer(id);
-            }
+            if (id !== self) createPeer(id);
         });
 
-        const initiator = users[0] === selfId;
+        // только первый инициирует
+        if (users[0] !== self) return;
 
-        if (!initiator) return;
-
+        // ЖДЁМ СТАБИЛЬНОСТЬ STREAM
         setTimeout(async () => {
 
             for (const id of users) {
 
-                if (id === selfId) continue;
+                if (id === self) continue;
 
                 const pc = peers[id];
+
                 if (!pc) continue;
 
                 const offer = await pc.createOffer();
@@ -161,7 +149,7 @@
                 });
             }
 
-        }, 1000);
+        }, 1500);
     });
 
     // ─────────────────────────────
@@ -171,9 +159,18 @@
     socket.on("offer", async ({ from, offer }) => {
 
         const pc = createPeer(from);
-        if (!pc) return;
 
         await pc.setRemoteDescription(offer);
+
+        // обработка накопленных ICE
+        if (pendingCandidates[from]) {
+
+            for (const c of pendingCandidates[from]) {
+                await pc.addIceCandidate(c);
+            }
+
+            delete pendingCandidates[from];
+        }
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -197,13 +194,22 @@
     });
 
     // ─────────────────────────────
-    // CANDIDATE
+    // CANDIDATE (КРИТИЧЕСКИ ИСПРАВЛЕНО)
     // ─────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
 
         const pc = peers[from];
-        if (!pc) return;
+
+        if (!pc || !pc.remoteDescription) {
+
+            if (!pendingCandidates[from]) {
+                pendingCandidates[from] = [];
+            }
+
+            pendingCandidates[from].push(candidate);
+            return;
+        }
 
         try {
             await pc.addIceCandidate(candidate);
@@ -213,12 +219,8 @@
     });
 
     // ─────────────────────────────
-    // USER LEFT
+    // START
     // ─────────────────────────────
-
-    socket.on("user-left", (id) => {
-        removePeer(id);
-    });
 
     start();
 
