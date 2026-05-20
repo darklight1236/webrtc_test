@@ -30,15 +30,8 @@
         streamReady = true;
 
         localVideo.srcObject = localStream;
+        document.getElementById("local-client").id = `client-${socket.id}`;
         detectSpeaking(localStream, "local-client");
-
-        localStream.getVideoTracks()[0].onmute = () => {
-            toggleCameraOff(true);
-        };
-
-        localStream.getVideoTracks()[0].onunmute = () => {
-            toggleCameraOff(false);
-        };
 
         socket.emit("join-room", {
             roomId,
@@ -381,6 +374,12 @@
         localStream.getVideoTracks().forEach(track => {
             track.enabled = camEnabled;
         });
+
+        // локальный UI
+        setCameraOff(socket.id, !camEnabled);
+
+        // отправка другим
+        toggleCameraOff(!camEnabled);
 
         camBtn.classList.toggle("off", !camEnabled);
         camBtn.classList.toggle("active", camEnabled);
