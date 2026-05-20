@@ -310,9 +310,17 @@ video{
     width: 100%;
     height: 100%;
     object-fit: cover;
-
     display: none;
     z-index: 2;
+    pointer-events: none;
+}
+
+.client.speaking.camera-disabled {
+    border: 3px solid #43ff64;
+
+    box-shadow:
+        0 0 25px rgba(67,255,100,0.45),
+        0 0 60px rgba(67,255,100,0.15);
 }
 
 .client.camera-disabled video {
