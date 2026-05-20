@@ -290,3 +290,7 @@ video{
 .name-input::placeholder {
     color: #888;
 }
+
+.control-btn.presenting {
+    background: #2d5cff;
+}

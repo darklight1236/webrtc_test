@@ -2,6 +2,7 @@
 
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
+    
 
     const params = new URLSearchParams(window.location.search);
     const myName = params.get("name") || "User";
@@ -323,9 +324,13 @@
     const micBtn = document.getElementById("micBtn");
     const camBtn = document.getElementById("camBtn");
     const leaveBtn = document.getElementById("leaveBtn");
+    const screenBtn = document.getElementById("screenBtn");
 
     let micEnabled = true;
     let camEnabled = true;
+
+    let screenStream = null;
+    let isScreenSharing = false;
 
     // MIC
     micBtn.onclick = () => {
@@ -377,6 +382,85 @@
             window.location.href = "/";
         }, 300);
     };
+
+    // SCREEN ON
+    screenBtn.onclick = async () => {
+
+        try {
+
+            if (!isScreenSharing) {
+
+                // ─────────────────────
+                // START SCREEN SHARE
+                // ─────────────────────
+
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: false
+                });
+
+                const screenTrack = screenStream.getVideoTracks()[0];
+
+                // заменяем видео у всех peers
+                Object.values(peers).forEach(pc => {
+
+                    const sender = pc.getSenders().find(s =>
+                        s.track && s.track.kind === "video"
+                    );
+
+                    if (sender) {
+                        sender.replaceTrack(screenTrack);
+                    }
+
+                });
+
+                // локальный preview
+                localVideo.srcObject = screenStream;
+
+                isScreenSharing = true;
+                screenBtn.classList.add("presenting");
+
+                // если пользователь нажал "Stop sharing" в браузере
+                screenTrack.onended = stopScreenShare;
+            }
+
+            else {
+                stopScreenShare();
+            }
+
+        } catch (err) {
+            console.error("SCREEN SHARE ERROR:", err);
+        }
+    };
+
+    async function stopScreenShare() {
+
+        if (!localStream) return;
+
+        const cameraTrack = localStream.getVideoTracks()[0];
+
+        Object.values(peers).forEach(pc => {
+
+            const sender = pc.getSenders().find(s =>
+                s.track && s.track.kind === "video"
+            );
+
+            if (sender) {
+                sender.replaceTrack(cameraTrack);
+            }
+
+        });
+
+        localVideo.srcObject = localStream;
+
+        isScreenSharing = false;
+        screenBtn.classList.remove("presenting");
+
+        if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+            screenStream = null;
+        }
+    }
 
     start();
 
