@@ -139,93 +139,32 @@
 
 
     // ДЕНДЖЕРОС!!!! БИ КАРЕФУЛ!!!
-    // function cleanupPeer(id) {
-
-    //     if (peers[id]) {
-    //         peers[id].close();
-    //         delete peers[id];
-    //     }
-
-    //     if (pendingCandidates[id]) {
-    //         delete pendingCandidates[id];
-    //     }
-
-    //     const client = document.getElementById(`client-${id}`);
-
-    //     if (client) {
-
-    //         leaveSound.currentTime = 0;
-    //         leaveSound.play().catch(() => { });
-
-    //         client.remove();
-    //     }
-
-    //     console.log("CLEANED UP:", id);
-    // }
-
-
     function cleanupPeer(id) {
 
-    const pc = peers[id];
-
-    if (pc) {
-
-        pc.ontrack = null;
-        pc.onicecandidate = null;
-        pc.onconnectionstatechange = null;
-
-        pc.getSenders().forEach(sender => {
-            if (sender.track) {
-                sender.track.stop();
-            }
-        });
-
-        pc.getReceivers().forEach(receiver => {
-            if (receiver.track) {
-                receiver.track.stop();
-            }
-        });
-
-        pc.close();
-
-        delete peers[id];
-    }
-
-    if (pendingCandidates[id]) {
-        delete pendingCandidates[id];
-    }
-
-    const client =
-        document.getElementById(`client-${id}`);
-
-    if (client) {
-
-        const video =
-            client.querySelector("video");
-
-        if (video) {
-
-            if (video.srcObject) {
-
-                video.srcObject
-                    .getTracks()
-                    .forEach(track => track.stop());
-
-                video.srcObject = null;
-            }
-
-            video.removeAttribute("src");
-            video.load();
+        if (peers[id]) {
+            peers[id].close();
+            delete peers[id];
         }
 
-        leaveSound.currentTime = 0;
-        leaveSound.play().catch(() => {});
+        if (pendingCandidates[id]) {
+            delete pendingCandidates[id];
+        }
 
-        client.remove();
+        const client = document.getElementById(`client-${id}`);
+
+        if (client) {
+
+            leaveSound.currentTime = 0;
+            leaveSound.play().catch(() => { });
+
+            client.remove();
+        }
+
+        console.log("CLEANED UP:", id);
     }
 
-    console.log("CLEANED:", id);
-}
+
+    
 
     // ───────────────────────────────
     // USERS
