@@ -613,7 +613,7 @@
         if (!name) return "";
 
         return name
-            .replace(/\([^)]*\)/g, "")
+            .replace(/\([0-9a-fA-F]{4}:[0-9a-fA-F]{4}\)/g, "")
             .replace(/\s+/g, " ")
             .trim();
     }
