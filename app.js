@@ -148,17 +148,13 @@
             delete pendingCandidates[id];
         }
 
-
-        // ДЕНДЖЕРОС!!!! БИ КЭРЭФУЛ!
-        // const video = document.getElementById(id);
-        // if (video) {
-        //     video.srcObject = null;
-        //     video.remove();
-        // }
-
         const client = document.getElementById(`client-${id}`);
 
         if (client) {
+
+            leaveSound.currentTime = 0;
+            leaveSound.play().catch(() => { });
+
             client.remove();
         }
 
@@ -282,8 +278,6 @@
     // ───────────────────────────────
 
     socket.on("user-left", (id) => {
-        leaveSound.currentTime = 0;
-        leaveSound.play().catch(() => { });
         cleanupPeer(id);
     });
 
