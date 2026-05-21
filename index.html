@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Crewlink</title>
+    <link rel="icon" href="img/Icon 1.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="lobby-body">
 
     <div class="lobby">
@@ -22,7 +25,31 @@
             const name = document.getElementById("nameInput").value.trim() || "Guest";
             window.location.href = `/chat.html?name=${encodeURIComponent(name)}`;
         };
-</script>
+
+        (() => {
+            
+            function init() {
+                const input = document.getElementById('nameInput');
+                const button = document.getElementById('joinBtn');
+
+                if (!input || !button) return;
+
+                input.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        button.click();
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })()
+    </script>
 
 </body>
+
 </html>
