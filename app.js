@@ -137,29 +137,95 @@
     // CLEANUP PEER
     // ───────────────────────────────
 
+
+    // ДЕНДЖЕРОС!!!! БИ КАРЕФУЛ!!!
+    // function cleanupPeer(id) {
+
+    //     if (peers[id]) {
+    //         peers[id].close();
+    //         delete peers[id];
+    //     }
+
+    //     if (pendingCandidates[id]) {
+    //         delete pendingCandidates[id];
+    //     }
+
+    //     const client = document.getElementById(`client-${id}`);
+
+    //     if (client) {
+
+    //         leaveSound.currentTime = 0;
+    //         leaveSound.play().catch(() => { });
+
+    //         client.remove();
+    //     }
+
+    //     console.log("CLEANED UP:", id);
+    // }
+
+
     function cleanupPeer(id) {
 
-        if (peers[id]) {
-            peers[id].close();
-            delete peers[id];
-        }
+    const pc = peers[id];
 
-        if (pendingCandidates[id]) {
-            delete pendingCandidates[id];
-        }
+    if (pc) {
 
-        const client = document.getElementById(`client-${id}`);
+        pc.ontrack = null;
+        pc.onicecandidate = null;
+        pc.onconnectionstatechange = null;
 
-        if (client) {
+        pc.getSenders().forEach(sender => {
+            if (sender.track) {
+                sender.track.stop();
+            }
+        });
 
-            leaveSound.currentTime = 0;
-            leaveSound.play().catch(() => { });
+        pc.getReceivers().forEach(receiver => {
+            if (receiver.track) {
+                receiver.track.stop();
+            }
+        });
 
-            client.remove();
-        }
+        pc.close();
 
-        console.log("CLEANED UP:", id);
+        delete peers[id];
     }
+
+    if (pendingCandidates[id]) {
+        delete pendingCandidates[id];
+    }
+
+    const client =
+        document.getElementById(`client-${id}`);
+
+    if (client) {
+
+        const video =
+            client.querySelector("video");
+
+        if (video) {
+
+            if (video.srcObject) {
+
+                video.srcObject
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+                video.srcObject = null;
+            }
+
+            video.removeAttribute("src");
+            video.load();
+        }
+
+        leaveSound.currentTime = 0;
+        leaveSound.play().catch(() => {});
+
+        client.remove();
+    }
+
+    console.log("CLEANED:", id);
+}
 
     // ───────────────────────────────
     // USERS
