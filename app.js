@@ -139,42 +139,10 @@
 
 
     // ДЕНДЖЕРОС!!!! БИ КАРЕФУЛ!!!
-    // function cleanupPeer(id) {
-
-    //     if (peers[id]) {
-    //         peers[id].close();
-    //         delete peers[id];
-    //     }
-
-    //     if (pendingCandidates[id]) {
-    //         delete pendingCandidates[id];
-    //     }
-
-    //     const client = document.getElementById(`client-${id}`);
-
-    //     if (client) {
-
-    //         leaveSound.currentTime = 0;
-    //         leaveSound.play().catch(() => { });
-
-    //         client.remove();
-    //     }
-
-    //     console.log("CLEANED UP:", id);
-    // }
-
     function cleanupPeer(id) {
 
-        const pc = peers[id];
-
-        if (pc) {
-
-            pc.ontrack = null;
-            pc.onicecandidate = null;
-            pc.onconnectionstatechange = null;
-
-            pc.close();
-
+        if (peers[id]) {
+            peers[id].close();
             delete peers[id];
         }
 
@@ -182,24 +150,9 @@
             delete pendingCandidates[id];
         }
 
-        const client =
-            document.getElementById(`client-${id}`);
+        const client = document.getElementById(`client-${id}`);
 
         if (client) {
-
-            const video =
-                client.querySelector("video");
-
-            if (video) {
-
-                if (video.srcObject) {
-
-                    video.srcObject = null;
-                }
-
-                video.removeAttribute("src");
-                video.load();
-            }
 
             leaveSound.currentTime = 0;
             leaveSound.play().catch(() => { });
@@ -207,9 +160,11 @@
             client.remove();
         }
 
-        console.log("CLEANED:", id);
+        console.log("CLEANED UP:", id);
     }
 
+
+    
 
     // ───────────────────────────────
     // USERS
