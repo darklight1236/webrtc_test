@@ -591,7 +591,7 @@
 
             option.value = mic.deviceId;
             option.text =
-                mic.label || "Microphone";
+                cleanDeviceName(mic.label) || "Microphone";
 
             micSelect.appendChild(option);
         });
@@ -602,10 +602,20 @@
 
             option.value = cam.deviceId;
             option.text =
-                cam.label || "Camera";
+                cleanDeviceName(cam.label) || "Camera";
 
             cameraSelect.appendChild(option);
         });
+    }
+
+    function cleanDeviceName(name) {
+
+        if (!name) return "";
+
+        return name
+            .replace(/\([^)]*\)/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
     micSelect.onchange = async () => {
