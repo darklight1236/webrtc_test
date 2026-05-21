@@ -326,3 +326,69 @@ video{
 .client.camera-disabled video {
     filter: brightness(0.3);
 }
+
+/* ───────────────────────────── */
+/* TOP LOGO */
+/* ───────────────────────────── */
+
+.topbar {
+
+    position: fixed;
+
+    top: 14px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    z-index: 2000;
+
+    pointer-events: none;
+}
+
+/* ───────────────────────────── */
+
+.logo {
+
+    width: min(320px, 70vw);
+
+    height: auto;
+
+    opacity: 0.92;
+
+    user-select: none;
+
+    filter:
+        drop-shadow(0 6px 18px rgba(0,0,0,0.55));
+
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+}
+
+/* ───────────────────────────── */
+
+.logo:hover {
+
+    transform: scale(1.02);
+
+    opacity: 1;
+}
+
+/* ───────────────────────────── */
+/* MOBILE */
+/* ───────────────────────────── */
+
+@media (max-width: 700px) {
+
+    .topbar {
+
+        top: 10px;
+    }
+
+    .logo {
+
+        width: min(220px, 62vw);
+
+        opacity: 0.82;
+    }
+}
