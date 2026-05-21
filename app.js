@@ -9,6 +9,8 @@
 
     const socket = io();
     const roomId = "test-room";
+    const joinSound = new Audio("sound/join/duck_join.mp3");
+    const leaveSound = new Audio("sound/leave/leave.mp3");
 
     let localStream = null;
     let streamReady = false;
@@ -280,6 +282,8 @@
     // ───────────────────────────────
 
     socket.on("user-left", (id) => {
+        leaveSound.currentTime = 0;
+        leaveSound.play().catch(() => { });
         cleanupPeer(id);
     });
 
@@ -289,6 +293,10 @@
 
     socket.on("user-joined", ({ id, name }) => {
         console.log(name + " joined");
+
+        joinSound.currentTime = 0;
+        joinSound.play().catch(() => { });
+
         createPeer(id, name);
     });
 
