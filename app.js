@@ -2,7 +2,7 @@
 
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
-    
+
 
     const params = new URLSearchParams(window.location.search);
     const myName = params.get("name") || "User";
@@ -294,47 +294,47 @@
 
     function detectSpeaking(stream, clientId) {
 
-    const audioContext = new AudioContext();
+        const audioContext = new AudioContext();
 
-    const analyser = audioContext.createAnalyser();
+        const analyser = audioContext.createAnalyser();
 
-    const microphone =
-        audioContext.createMediaStreamSource(stream);
+        const microphone =
+            audioContext.createMediaStreamSource(stream);
 
-    const dataArray =
-        new Uint8Array(analyser.fftSize);
+        const dataArray =
+            new Uint8Array(analyser.fftSize);
 
-    microphone.connect(analyser);
+        microphone.connect(analyser);
 
-    function checkAudio() {
+        function checkAudio() {
 
-        analyser.getByteTimeDomainData(dataArray);
+            analyser.getByteTimeDomainData(dataArray);
 
-        let volume = 0;
+            let volume = 0;
 
-        for (let i = 0; i < dataArray.length; i++) {
+            for (let i = 0; i < dataArray.length; i++) {
 
-            volume += Math.abs(dataArray[i] - 128);
-        }
-
-        const speaking = volume > 2500;
-
-        const client = document.getElementById(clientId);
-
-        if (client) {
-
-            if (speaking) {
-                client.classList.add("speaking");
-            } else {
-                client.classList.remove("speaking");
+                volume += Math.abs(dataArray[i] - 128);
             }
+
+            const speaking = volume > 2500;
+
+            const client = document.getElementById(clientId);
+
+            if (client) {
+
+                if (speaking) {
+                    client.classList.add("speaking");
+                } else {
+                    client.classList.remove("speaking");
+                }
+            }
+
+            requestAnimationFrame(checkAudio);
         }
 
-        requestAnimationFrame(checkAudio);
+        checkAudio();
     }
-
-    checkAudio();
-}
 
 
     // micro\video on\off button
@@ -515,10 +515,10 @@
 
         if (el.requestFullscreen) {
             el.requestFullscreen();
-        } 
+        }
         else if (el.webkitRequestFullscreen) {
             el.webkitRequestFullscreen();
-        } 
+        }
         else if (el.msRequestFullscreen) {
             el.msRequestFullscreen();
         }
@@ -554,6 +554,128 @@
             img.style.display = "none";
             el.classList.remove("camera-disabled");
         }
+    }
+
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsPanel = document.getElementById("settingsPanel");
+
+    const micSelect = document.getElementById("micSelect");
+    const cameraSelect = document.getElementById("cameraSelect");
+
+    settingsBtn.onclick = async () => {
+
+        settingsPanel.classList.toggle("hidden");
+
+        if (!settingsPanel.classList.contains("hidden")) {
+            await loadDevices();
+        }
+    };
+
+    async function loadDevices() {
+
+        const devices =
+            await navigator.mediaDevices.enumerateDevices();
+
+        const microphones =
+            devices.filter(d => d.kind === "audioinput");
+
+        const cameras =
+            devices.filter(d => d.kind === "videoinput");
+
+        micSelect.innerHTML = "";
+        cameraSelect.innerHTML = "";
+
+        microphones.forEach(mic => {
+
+            const option = document.createElement("option");
+
+            option.value = mic.deviceId;
+            option.text =
+                mic.label || "Microphone";
+
+            micSelect.appendChild(option);
+        });
+
+        cameras.forEach(cam => {
+
+            const option = document.createElement("option");
+
+            option.value = cam.deviceId;
+            option.text =
+                cam.label || "Camera";
+
+            cameraSelect.appendChild(option);
+        });
+    }
+
+    micSelect.onchange = async () => {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    deviceId: {
+                        exact: micSelect.value
+                    }
+                }
+            });
+
+        const newTrack =
+            stream.getAudioTracks()[0];
+
+        const oldTrack =
+            localStream.getAudioTracks()[0];
+
+        Object.values(peers).forEach(pc => {
+
+            const sender = pc.getSenders().find(s =>
+                s.track && s.track.kind === "audio"
+            );
+
+            if (sender) {
+                sender.replaceTrack(newTrack);
+            }
+        });
+
+        oldTrack.stop();
+
+        localStream.removeTrack(oldTrack);
+        localStream.addTrack(newTrack);
+    };
+
+    cameraSelect.onchange = async () => {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: {
+                        exact: cameraSelect.value
+                    }
+                }
+            });
+
+        const newTrack =
+            stream.getVideoTracks()[0];
+
+        const oldTrack =
+            localStream.getVideoTracks()[0];
+
+        Object.values(peers).forEach(pc => {
+
+            const sender = pc.getSenders().find(s =>
+                s.track && s.track.kind === "video"
+            );
+
+            if (sender) {
+                sender.replaceTrack(newTrack);
+            }
+        });
+
+        oldTrack.stop();
+
+        localStream.removeTrack(oldTrack);
+        localStream.addTrack(newTrack);
+
+        localVideo.srcObject = localStream;
     }
 
     start();
