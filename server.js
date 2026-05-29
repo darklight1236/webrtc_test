@@ -9,29 +9,20 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname)));
 
+const users = {};
+
 io.on("connection", (socket) => {
 
-    socket.on("join-room", ({ roomId, name }) => {
+    socket.on("join-room", (roomId) => {
+
+        if (!users[roomId]) users[roomId] = [];
+
+        users[roomId].push(socket.id);
 
         socket.join(roomId);
 
-        socket.data.name = name;
-
-        const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
-
-        // отправляем новому ВСЕХ пользователей с именами
-        const users = clients.map(id => ({
-            id,
-            name: io.sockets.sockets.get(id)?.data?.name || "User"
-        }));
-
-        socket.emit("users", users);
-
-        // сообщаем другим о новом пользователе
-        socket.to(roomId).emit("user-joined", {
-            id: socket.id,
-            name: socket.data.name
-        });
+        // отправляем список всех пользователей в комнате
+        io.to(roomId).emit("users", users[roomId]);
     });
 
     socket.on("offer", ({ to, offer }) => {
@@ -47,22 +38,13 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-        for (const roomId of socket.rooms) {
-            if (roomId !== socket.id) {
-                socket.to(roomId).emit("user-left", socket.id);
-            }
+        for (const roomId in users) {
+            users[roomId] = users[roomId].filter(id => id !== socket.id);
         }
-    });
-
-    socket.on("camera-state", ({ roomId, userId, isOff }) => {
-        socket.to(roomId).emit("camera-state", {
-            userId,
-            isOff
-        });
     });
 
 });
 
 server.listen(3000, () => {
-    console.log("Server running on 3000");
+    console.log("Server running");
 });

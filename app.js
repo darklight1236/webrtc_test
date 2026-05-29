@@ -3,24 +3,14 @@
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
 
-
-    const params = new URLSearchParams(window.location.search);
-    const myName = params.get("name") || "User";
-
     const socket = io();
+
     const roomId = "test-room";
-    const joinSound = new Audio("sound/join/duck_join.mp3");
-    const leaveSound = new Audio("sound/leave/leave.mp3");
 
-    let localStream = null;
-    let streamReady = false;
+    let localStream;
+    const peers = {}; // socketId → RTCPeerConnection
 
-    const peers = {};
-    const pendingCandidates = {};
-
-    // ───────────────────────────────
-    // START STREAM
-    // ───────────────────────────────
+    socket.emit("join-room", roomId);
 
     async function start() {
 
@@ -29,23 +19,22 @@
             audio: true
         });
 
-        streamReady = true;
-
         localVideo.srcObject = localStream;
-        document.getElementById("local-client").id = `client-${socket.id}`;
-        detectSpeaking(localStream, `client-${socket.id}`);
-
-        socket.emit("join-room", {
-            roomId,
-            name: myName
-        });
     }
 
-    // ───────────────────────────────
-    // CREATE PEER
-    // ───────────────────────────────
+    socket.on("users", (users) => {
 
-    function createPeer(id, name) {
+        users.forEach(id => {
+
+            if (id === socket.id) return;
+            if (peers[id]) return;
+
+            createPeer(id, true);
+        });
+
+    });
+
+    function createPeer(id, initiator) {
 
         const pc = new RTCPeerConnection({
             iceServers: [
@@ -65,49 +54,15 @@
             pc.addTrack(track, localStream);
         });
 
-        // create video
-        const client = document.createElement("div");
-        client.className = "client";
-        client.id = `client-${id}`;
-
+        // remote video element
         const video = document.createElement("video");
-
         video.autoplay = true;
         video.playsInline = true;
         video.id = id;
-
-        video.onclick = () => {
-
-            const el = document.getElementById(`client-${id}`);
-
-            if (!el) return;
-
-            if (el.classList.contains("screen-active")) {
-                el.classList.remove("screen-active");
-                activeScreenId = null;
-            } else {
-                setScreenFocus(id);
-            }
-        };
-
-        const username = document.createElement("div");
-        username.className = "username";
-        username.innerText = name || "User";
-
-        client.appendChild(video);
-        client.appendChild(username);
-
-        container.appendChild(client);
+        container.appendChild(video);
 
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
-
-            detectSpeaking(
-                event.streams[0],
-                `client-${id}`
-            );
-
-            setScreenFocus(id);
         };
 
         pc.onicecandidate = (event) => {
@@ -119,96 +74,21 @@
             }
         };
 
-        pc.onconnectionstatechange = () => {
-
-            if (
-                pc.connectionState === "failed" ||
-                pc.connectionState === "disconnected" ||
-                pc.connectionState === "closed"
-            ) {
-                cleanupPeer(id);
-            }
-        };
+        if (initiator) {
+            pc.createOffer().then(offer => {
+                pc.setLocalDescription(offer);
+                socket.emit("offer", { to: id, offer });
+            });
+        }
 
         return pc;
     }
 
-    // ───────────────────────────────
-    // CLEANUP PEER
-    // ───────────────────────────────
-
-
-    // ДЕНДЖЕРОС!!!! БИ КАРЕФУЛ!!!
-    function cleanupPeer(id) {
-
-        if (peers[id]) {
-            peers[id].close();
-            delete peers[id];
-        }
-
-        if (pendingCandidates[id]) {
-            delete pendingCandidates[id];
-        }
-
-        const client = document.getElementById(`client-${id}`);
-
-        if (client) {
-
-            leaveSound.currentTime = 0;
-            leaveSound.play().catch(() => { });
-
-            client.remove();
-        }
-
-        console.log("CLEANED UP:", id);
-    }
-
-
-    
-
-    // ───────────────────────────────
-    // USERS
-    // ───────────────────────────────
-
-    socket.on("users", (users) => {
-
-        if (!streamReady) return;
-
-        users.forEach(user => {
-
-            const { id, name } = user;
-
-            if (id === socket.id) return;
-            if (peers[id]) return;
-
-            const pc = createPeer(id, name);
-
-            pc.createOffer()
-                .then(o => pc.setLocalDescription(o))
-                .then(() => {
-                    socket.emit("offer", {
-                        to: id,
-                        offer: pc.localDescription
-                    });
-                });
-        });
-    });
-
-    // ───────────────────────────────
-    // OFFER
-    // ───────────────────────────────
-
     socket.on("offer", async ({ from, offer }) => {
 
-        if (!peers[from]) {
-            createPeer(from);
-        }
+        const pc = createPeer(from, false);
 
-        const pc = peers[from];
-
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        flushCandidates(from);
+        await pc.setRemoteDescription(offer);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -219,483 +99,17 @@
         });
     });
 
-    // ───────────────────────────────
-    // ANSWER
-    // ───────────────────────────────
-
     socket.on("answer", async ({ from, answer }) => {
 
-        const pc = peers[from];
-
-        if (!pc) return;
-
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
-        flushCandidates(from);
+        await peers[from].setRemoteDescription(answer);
     });
-
-    // ───────────────────────────────
-    // ICE
-    // ───────────────────────────────
 
     socket.on("candidate", async ({ from, candidate }) => {
 
-        const pc = peers[from];
-
-        if (!pc) return;
-
-        if (!pc.remoteDescription) {
-
-            if (!pendingCandidates[from]) {
-                pendingCandidates[from] = [];
-            }
-
-            pendingCandidates[from].push(candidate);
-            return;
-        }
-
-        try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-            console.error(e);
+        if (peers[from]) {
+            await peers[from].addIceCandidate(candidate);
         }
     });
-
-    // ───────────────────────────────
-    // FLUSH ICE QUEUE
-    // ───────────────────────────────
-
-    function flushCandidates(id) {
-
-        const pc = peers[id];
-        if (!pc) return;
-
-        if (pendingCandidates[id]) {
-            for (const c of pendingCandidates[id]) {
-                pc.addIceCandidate(new RTCIceCandidate(c));
-            }
-            pendingCandidates[id] = [];
-        }
-    }
-
-
-    //123
-    // ───────────────────────────────
-    // USER LEFT
-    // ───────────────────────────────
-
-    socket.on("user-left", (id) => {
-        cleanupPeer(id);
-    });
-
-    socket.on("camera-state", ({ userId, isOff }) => {
-        setCameraOff(userId, isOff);
-    });
-
-    socket.on("user-joined", ({ id, name }) => {
-        console.log(name + " joined");
-
-        joinSound.currentTime = 0;
-        joinSound.play().catch(() => { });
-
-        createPeer(id, name);
-    });
-
-    function detectSpeaking(stream, clientId) {
-
-        const audioContext = new AudioContext();
-
-        const analyser = audioContext.createAnalyser();
-
-        const microphone =
-            audioContext.createMediaStreamSource(stream);
-
-        const dataArray =
-            new Uint8Array(analyser.fftSize);
-
-        microphone.connect(analyser);
-
-        function checkAudio() {
-
-            analyser.getByteTimeDomainData(dataArray);
-
-            let volume = 0;
-
-            for (let i = 0; i < dataArray.length; i++) {
-
-                volume += Math.abs(dataArray[i] - 128);
-            }
-
-            const speaking = volume > 2500;
-
-            const client = document.getElementById(clientId);
-
-            if (client) {
-
-                if (speaking) {
-                    client.classList.add("speaking");
-                } else {
-                    client.classList.remove("speaking");
-                }
-            }
-
-            requestAnimationFrame(checkAudio);
-        }
-
-        checkAudio();
-    }
-
-
-    // micro\video on\off button
-    // ───────────────────────────────
-    // CONTROLS
-    // ───────────────────────────────
-
-    const micBtn = document.getElementById("micBtn");
-    const camBtn = document.getElementById("camBtn");
-    const leaveBtn = document.getElementById("leaveBtn");
-    const screenBtn = document.getElementById("screenBtn");
-
-    let micEnabled = true;
-    let camEnabled = true;
-
-    let screenStream = null;
-    let isScreenSharing = false;
-
-    // MIC
-    micBtn.onclick = () => {
-
-        micEnabled = !micEnabled;
-
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-        });
-
-        micBtn.classList.toggle("off", !micEnabled);
-        micBtn.classList.toggle("active", micEnabled);
-    };
-
-    // CAMERA
-    camBtn.onclick = () => {
-
-        camEnabled = !camEnabled;
-
-        localStream.getVideoTracks().forEach(track => {
-            track.enabled = camEnabled;
-        });
-
-        // локальный UI
-        setCameraOff(socket.id, !camEnabled);
-
-        // отправка другим
-        toggleCameraOff(!camEnabled);
-
-        camBtn.classList.toggle("off", !camEnabled);
-        camBtn.classList.toggle("active", camEnabled);
-    };
-
-    leaveBtn.onclick = () => {
-
-        // 1. отключаем стримы
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-
-        // 2. закрываем все peer connections
-        Object.values(peers).forEach(pc => pc.close());
-
-        // 3. очищаем UI
-        document.querySelectorAll(".client").forEach(el => {
-            if (el.id !== "local-client") el.remove();
-        });
-
-        // 4. уведомляем сервер
-        socket.disconnect();
-
-        // 5. (опционально) закрыть вкладку
-        setTimeout(() => {
-            // window.location.reload(); // безопаснее чем window.close()
-            window.location.href = "/";
-        }, 300);
-    };
-
-    // SCREEN ON
-    screenBtn.onclick = async () => {
-
-        try {
-
-            if (!isScreenSharing) {
-
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: false
-                });
-
-                const videoTrack = screenStream.getVideoTracks()[0];
-
-                if (videoTrack) {
-                    videoTrack.onmute = () => toggleCameraOff(true);
-                    videoTrack.onunmute = () => toggleCameraOff(false);
-                }
-
-                Object.values(peers).forEach(pc => {
-
-                    const sender = pc.getSenders().find(s =>
-                        s.track && s.track.kind === "video"
-                    );
-
-                    if (sender && videoTrack) {
-                        sender.replaceTrack(videoTrack);
-                    }
-
-                });
-
-                localVideo.srcObject = screenStream;
-
-                isScreenSharing = true;
-                screenBtn.classList.add("presenting");
-
-                // авто стоп если пользователь нажал "Stop sharing"
-                videoTrack.onended = stopScreenShare;
-            }
-
-            else {
-                stopScreenShare();
-            }
-
-        } catch (err) {
-            console.error("SCREEN SHARE ERROR:", err);
-        }
-    };
-
-    async function stopScreenShare() {
-
-        if (!localStream) return;
-
-        const cameraTrack = localStream.getVideoTracks()[0];
-
-        Object.values(peers).forEach(pc => {
-
-            const sender = pc.getSenders().find(s =>
-                s.track && s.track.kind === "video"
-            );
-
-            if (sender && cameraTrack) {
-                sender.replaceTrack(cameraTrack);
-            }
-
-        });
-
-        localVideo.srcObject = localStream;
-
-        isScreenSharing = false;
-        screenBtn.classList.remove("presenting");
-
-        if (screenStream) {
-            screenStream.getTracks().forEach(t => t.stop());
-            screenStream = null;
-        }
-
-        // убрать фокус экрана
-        document.querySelectorAll(".client").forEach(el => {
-            el.classList.remove("screen-active");
-        });
-    }
-
-    let activeScreenId = null;
-
-    function setScreenFocus(id) {
-
-        document.querySelectorAll(".client").forEach(el => {
-            el.classList.remove("screen-active");
-        });
-
-        const el = document.getElementById(`client-${id}`);
-
-        if (el) {
-            el.classList.add("screen-active");
-            activeScreenId = id;
-        }
-    }
-
-    function openFullscreen(el) {
-
-        if (!el) return;
-
-        if (el.requestFullscreen) {
-            el.requestFullscreen();
-        }
-        else if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen();
-        }
-        else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen();
-        }
-    }
-
-    function toggleCameraOff(isOff) {
-
-        socket.emit("camera-state", {
-            roomId,
-            userId: socket.id,
-            isOff
-        });
-    }
-
-    function setCameraOff(id, isOff) {
-
-        const el = document.getElementById(`client-${id}`);
-        if (!el) return;
-
-        let img = el.querySelector(".camera-off");
-
-        if (!img) {
-            img = document.createElement("img");
-            img.className = "camera-off";
-            img.src = "img/rat-dance.gif";
-            el.appendChild(img);
-        }
-
-        if (isOff) {
-            img.style.display = "block";
-            el.classList.add("camera-disabled");
-        } else {
-            img.style.display = "none";
-            el.classList.remove("camera-disabled");
-        }
-    }
-
-    const settingsBtn = document.getElementById("settingsBtn");
-    const settingsPanel = document.getElementById("settingsPanel");
-
-    const micSelect = document.getElementById("micSelect");
-    const cameraSelect = document.getElementById("cameraSelect");
-
-    settingsBtn.onclick = async () => {
-
-        settingsPanel.classList.toggle("hidden");
-
-        if (!settingsPanel.classList.contains("hidden")) {
-            await loadDevices();
-        }
-    };
-
-    async function loadDevices() {
-
-        const devices =
-            await navigator.mediaDevices.enumerateDevices();
-
-        const microphones =
-            devices.filter(d => d.kind === "audioinput");
-
-        const cameras =
-            devices.filter(d => d.kind === "videoinput");
-
-        micSelect.innerHTML = "";
-        cameraSelect.innerHTML = "";
-
-        microphones.forEach(mic => {
-
-            const option = document.createElement("option");
-
-            option.value = mic.deviceId;
-            option.text =
-                cleanDeviceName(mic.label) || "Microphone";
-
-            micSelect.appendChild(option);
-        });
-
-        cameras.forEach(cam => {
-
-            const option = document.createElement("option");
-
-            option.value = cam.deviceId;
-            option.text =
-                cleanDeviceName(cam.label) || "Camera";
-
-            cameraSelect.appendChild(option);
-        });
-    }
-
-    function cleanDeviceName(name) {
-
-        if (!name) return "";
-
-        return name
-            .replace(/\([0-9a-fA-F]{4}:[0-9a-fA-F]{4}\)/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-    }
-
-    micSelect.onchange = async () => {
-
-        const stream =
-            await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    deviceId: {
-                        exact: micSelect.value
-                    }
-                }
-            });
-
-        const newTrack =
-            stream.getAudioTracks()[0];
-
-        const oldTrack =
-            localStream.getAudioTracks()[0];
-
-        Object.values(peers).forEach(pc => {
-
-            const sender = pc.getSenders().find(s =>
-                s.track && s.track.kind === "audio"
-            );
-
-            if (sender) {
-                sender.replaceTrack(newTrack);
-            }
-        });
-
-        oldTrack.stop();
-
-        localStream.removeTrack(oldTrack);
-        localStream.addTrack(newTrack);
-    };
-
-    cameraSelect.onchange = async () => {
-
-        const stream =
-            await navigator.mediaDevices.getUserMedia({
-                video: {
-                    deviceId: {
-                        exact: cameraSelect.value
-                    }
-                }
-            });
-
-        const newTrack =
-            stream.getVideoTracks()[0];
-
-        const oldTrack =
-            localStream.getVideoTracks()[0];
-
-        Object.values(peers).forEach(pc => {
-
-            const sender = pc.getSenders().find(s =>
-                s.track && s.track.kind === "video"
-            );
-
-            if (sender) {
-                sender.replaceTrack(newTrack);
-            }
-        });
-
-        oldTrack.stop();
-
-        localStream.removeTrack(oldTrack);
-        localStream.addTrack(newTrack);
-
-        localVideo.srcObject = localStream;
-    }
 
     start();
 
