@@ -76,7 +76,7 @@
         // 2. ОБРАБОТКА ПОЛУЧЕННОГО ПОТОКА
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
-            
+
             // Заставляем браузер воспроизвести видео, как только оно загрузится
             video.onloadedmetadata = () => {
                 video.play().catch(err => {
