@@ -40,6 +40,11 @@ io.on("connection", (socket) => {
         io.to(to).emit("candidate", { from: socket.id, candidate });
     });
 
+    socket.on("disconnect", () => {
+        // Рассылаем всем сигнал, что пользователь ушел
+        socket.broadcast.emit("user-disconnected", socket.id);
+    });
+
 });
 
 server.listen(3000, () => {

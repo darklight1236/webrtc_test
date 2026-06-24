@@ -203,6 +203,22 @@
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
+    // ───────────────────────────────
+    // USER DISCONNECTED
+    // ───────────────────────────────
+    socket.on("user-disconnected", (id) => {
+        if (peers[id]) {
+            peers[id].close(); // Закрываем P2P соединение
+            delete peers[id];  // Удаляем из памяти
+        }
+
+        // Находим блок с видео и удаляем его из верстки
+        const videoWrapper = document.getElementById("wrapper-" + id);
+        if (videoWrapper) {
+            videoWrapper.remove();
+        }
+    });
+
     start();
 
 })();
