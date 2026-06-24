@@ -36,6 +36,10 @@
     // CREATE PEER
     // ───────────────────────────────
 
+    // ───────────────────────────────
+    // CREATE PEER (УЛУЧШЕННЫЙ)
+    // ───────────────────────────────
+
     function createPeer(id) {
 
         const pc = new RTCPeerConnection({
@@ -46,22 +50,43 @@
 
         peers[id] = pc;
 
-        // add tracks (ВАЖНО: stream уже должен быть готов)
+        // Добавляем наши локальные треки (камеру и микрофон) в соединение
         localStream.getTracks().forEach(track => {
             pc.addTrack(track, localStream);
         });
 
-        // video element
+        // 1. СОЗДАЕМ ПРАВИЛЬНУЮ ОБЕРТКУ ДЛЯ ВЕРСТКИ
+        const clientDiv = document.createElement("div");
+        clientDiv.className = "client"; // Тот самый класс из твоего CSS
+        clientDiv.id = "wrapper-" + id;
+
+        const label = document.createElement("label");
+        label.innerText = "Собеседник";
+        clientDiv.appendChild(label);
+
         const video = document.createElement("video");
         video.autoplay = true;
         video.playsInline = true;
+        // video.muted = true; // РАСКОММЕНТИРУЙ для теста, если браузер всё равно блокирует звук
         video.id = id;
-        container.appendChild(video);
 
+        clientDiv.appendChild(video);
+        container.appendChild(clientDiv);
+
+        // 2. ОБРАБОТКА ПОЛУЧЕННОГО ПОТОКА
         pc.ontrack = (event) => {
             video.srcObject = event.streams[0];
+            
+            // Заставляем браузер воспроизвести видео, как только оно загрузится
+            video.onloadedmetadata = () => {
+                video.play().catch(err => {
+                    console.error("Браузер заблокировал автоплей:", err);
+                    // Здесь в идеале нужно показывать кнопку "Нажмите, чтобы включить звук"
+                });
+            };
         };
 
+        // 3. ОТПРАВКА ICE-КАНДИДАТОВ
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 socket.emit("candidate", {
@@ -69,6 +94,11 @@
                     candidate: event.candidate
                 });
             }
+        };
+
+        // 4. ЛОГИРОВАНИЕ СТАТУСА СЕТИ (ОЧЕНЬ ВАЖНО)
+        pc.oniceconnectionstatechange = () => {
+            console.log(`Статус соединения с ${id}:`, pc.iceConnectionState);
         };
 
         return pc;
