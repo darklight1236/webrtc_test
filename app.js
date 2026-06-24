@@ -3,7 +3,9 @@
     const localVideo = document.getElementById("local");
     const container = document.querySelector(".container");
 
-    const socket = io();
+    const socket = io({
+        transports: ['websocket']
+    });
     const roomId = "test-room";
 
     let localStream = null;
@@ -38,12 +40,7 @@
 
         const pc = new RTCPeerConnection({
             iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                {
-                    urls: "turn:159.194.214.116:3478",
-                    username: "test",
-                    credential: "test123"
-                }
+                { urls: "stun:stun.l.google.com:19302" }
             ]
         });
 
