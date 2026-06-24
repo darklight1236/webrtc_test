@@ -44,7 +44,12 @@
 
         const pc = new RTCPeerConnection({
             iceServers: [
-                { urls: "stun:stun.l.google.com:19302" }
+                { urls: "stun:stun.l.google.com:19302" },
+                {
+                    urls: "turn:159.194.214.116:3478",
+                    username: "crewlink",
+                    credential: "Antonden1" // Тот пароль, что ты указал в конфиге
+                }
             ]
         });
 
