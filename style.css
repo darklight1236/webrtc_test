@@ -460,3 +460,31 @@ video {
 
     outline: none;
 }
+
+/* ───────────────────────────── */
+/* ОФОРМЛЕНИЕ НИКНЕЙМА (LABEL)   */
+/* ───────────────────────────── */
+
+.client label {
+    position: absolute;
+    top: 14px; /* Закрепляем сверху */
+    left: 50%; /* Сдвигаем на 50% вправо */
+    transform: translateX(-50%); /* Центрируем ровно по оси */
+    z-index: 10; /* Обязательно поверх видео */
+
+    padding: 6px 14px;
+    border-radius: 12px;
+
+    /* Более светлый фон (белый с прозрачностью 20%) и легкая светлая рамка */
+    background: rgba(255, 255, 255, 0.2); 
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    /* Белый цвет текста */
+    color: #ffffff; 
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); /* Легкая тень, чтобы текст читался на светлом фоне видео */
+    
+    pointer-events: none; /* Чтобы плашка не блокировала случайные клики */
+}
