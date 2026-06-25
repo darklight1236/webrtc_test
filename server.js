@@ -7,25 +7,37 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", // Для теста разрешаем всё. Потом можно заменить на "https://crewlink.ru"
+        origin: "*", 
         methods: ["GET", "POST"]
     }
 });
 
 app.use(express.static(path.join(__dirname)));
 
+// 1. СОЗДАЕМ ХРАНИЛИЩЕ ИМЕН
+const usersMap = {}; 
+
 io.on("connection", (socket) => {
 
-    socket.on("join-room", (roomId) => {
+    // 2. ТЕПЕРЬ МЫ ПРИНИМАЕМ НЕ ПРОСТО СТРОКУ, А ОБЪЕКТ С ИМЕНЕМ
+    socket.on("join-room", ({ roomId, name }) => {
         socket.join(roomId);
 
-        // отправляем список всех пользователей в комнате
-        const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+        // Запоминаем имя по socket.id
+        usersMap[socket.id] = name || "Guest";
 
-        socket.emit("users", clients);
+        // Собираем список участников: теперь это массив объектов [{id, name}, ...]
+        const clientsArray = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+        const usersWithNames = clientsArray.map(id => ({
+            id: id,
+            name: usersMap[id]
+        }));
 
-        // уведомляем остальных
-        socket.to(roomId).emit("user-joined", socket.id);
+        // Отправляем новенькому список всех, кто уже в комнате (с именами)
+        socket.emit("users", usersWithNames);
+
+        // Уведомляем остальных, что зашел новенький (передаем его id и имя)
+        socket.to(roomId).emit("user-joined", { id: socket.id, name: usersMap[socket.id] });
     });
 
     socket.on("offer", ({ to, offer }) => {
@@ -41,10 +53,10 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-        // Рассылаем всем сигнал, что пользователь ушел
+        // Очищаем память и уведомляем об уходе
+        delete usersMap[socket.id]; 
         socket.broadcast.emit("user-disconnected", socket.id);
     });
-
 });
 
 server.listen(3000, () => {

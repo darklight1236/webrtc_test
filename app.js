@@ -8,6 +8,11 @@
     });
     const roomId = "test-room";
 
+    // ВЫТАСКИВАЕМ ИМЯ ИЗ URL И СОЗДАЕМ ХРАНИЛИЩЕ ДЛЯ ЧУЖИХ ИМЕН
+    const urlParams = new URLSearchParams(window.location.search);
+    const myName = urlParams.get('name') || "Guest";
+    const peerNames = {};
+
     let localStream = null;
 
     // ───────────────────────────────
@@ -63,19 +68,21 @@
     // ───────────────────────────────
 
     async function start() {
-
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
         });
 
         streamReady = true;
-
         localVideo.srcObject = localStream;
+
+        // ПИШЕМ СВОЕ ИМЯ НАД СВОИМ ВИДЕО
+        document.querySelector("#local-client label").innerText = myName;
 
         monitorSpeaking(localStream, document.getElementById("local-client"));
 
-        socket.emit("join-room", roomId);
+        // ОТПРАВЛЯЕМ СЕРВЕРУ СВОЕ ИМЯ
+        socket.emit("join-room", { roomId: roomId, name: myName });
     }
 
     // ───────────────────────────────
@@ -112,7 +119,8 @@
         clientDiv.id = "wrapper-" + id;
 
         const label = document.createElement("label");
-        label.innerText = "Собеседник";
+        // БЕРЕМ ИМЯ ИЗ ХРАНИЛИЩА ИЛИ ПИШЕМ "Собеседник" ЕСЛИ ЕГО ТАМ НЕТ
+        label.innerText = peerNames[id] || "Собеседник";
         clientDiv.appendChild(label);
 
         const video = document.createElement("video");
@@ -162,26 +170,34 @@
     // ───────────────────────────────
 
     socket.on("users", (users) => {
-
         if (!streamReady) return;
 
-        users.forEach(id => {
+        users.forEach(user => {
+            if (user.id === socket.id) return;
+            if (peers[user.id]) return;
 
-            if (id === socket.id) return;
-            if (peers[id]) return;
+            // Сохраняем имя того, кто уже был в комнате
+            peerNames[user.id] = user.name;
 
-            const pc = createPeer(id);
+            const pc = createPeer(user.id);
 
             pc.createOffer()
                 .then(offer => pc.setLocalDescription(offer))
                 .then(() => {
                     socket.emit("offer", {
-                        to: id,
+                        to: user.id, // Отправляем оффер на конкретный ID
                         offer: pc.localDescription
                     });
                 });
-
         });
+    });
+
+    // ───────────────────────────────
+    // НОВЫЙ ПОЛЬЗОВАТЕЛЬ ЗАШЕЛ
+    // ───────────────────────────────
+    socket.on("user-joined", ({ id, name }) => {
+        // Запоминаем имя новенького ДО того, как от него прилетит WebRTC оффер
+        peerNames[id] = name;
     });
 
     // ───────────────────────────────
