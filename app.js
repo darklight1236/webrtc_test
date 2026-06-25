@@ -9,6 +9,50 @@
     const roomId = "test-room";
 
     let localStream = null;
+
+    // ───────────────────────────────
+    // АНАЛИЗАТОР ГРОМКОСТИ (ЗЕЛЕНАЯ РАМКА)
+    // ───────────────────────────────
+    let audioContext;
+
+    function monitorSpeaking(stream, wrapperElement) {
+        try {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const analyzer = audioContext.createAnalyser();
+            analyzer.fftSize = 256;
+
+            // Берем только аудио треки, чтобы избежать ошибок
+            const audioStream = new MediaStream(stream.getAudioTracks());
+            if (audioStream.getAudioTracks().length === 0) return;
+
+            const microphone = audioContext.createMediaStreamSource(audioStream);
+            microphone.connect(analyzer);
+            const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+
+            function checkVolume() {
+                analyzer.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / dataArray.length;
+
+                // Если звук громче порога (10) - включаем зеленую рамку
+                if (average > 10) {
+                    wrapperElement.classList.add("speaking");
+                } else {
+                    wrapperElement.classList.remove("speaking");
+                }
+                requestAnimationFrame(checkVolume);
+            }
+            checkVolume();
+        } catch (e) {
+            console.error("Audio Context error:", e);
+        }
+    }
+
     let streamReady = false;
 
     const peers = {};
@@ -28,6 +72,8 @@
         streamReady = true;
 
         localVideo.srcObject = localStream;
+
+        monitorSpeaking(localStream, document.getElementById("local-client"));
 
         socket.emit("join-room", roomId);
     }
@@ -89,6 +135,8 @@
                     // Здесь в идеале нужно показывать кнопку "Нажмите, чтобы включить звук"
                 });
             };
+
+            monitorSpeaking(event.streams[0], clientDiv);
         };
 
         // 3. ОТПРАВКА ICE-КАНДИДАТОВ
@@ -223,6 +271,98 @@
             videoWrapper.remove();
         }
     });
+
+    // ───────────────────────────────
+    // УПРАВЛЕНИЕ КНОПКАМИ
+    // ───────────────────────────────
+    let isCamOn = true;
+    let isMicOn = true;
+    let isDeafened = false;
+    let isScreenSharing = false;
+    let originalVideoTrack = null;
+
+    // 1. КАМЕРА
+    document.getElementById("camBtn").addEventListener("click", (e) => {
+        isCamOn = !isCamOn;
+        localStream.getVideoTracks()[0].enabled = isCamOn;
+        e.target.classList.toggle("off", !isCamOn);
+    });
+
+    // 2. МИКРОФОН
+    document.getElementById("micBtn").addEventListener("click", (e) => {
+        if (isDeafened) return; // Если мы в режиме "глухонемого", микрофон не трогаем
+        isMicOn = !isMicOn;
+        localStream.getAudioTracks()[0].enabled = isMicOn;
+        e.target.classList.toggle("off", !isMicOn);
+    });
+
+    // 3. DEAFEN (Глухонемой)
+    document.getElementById("deafenBtn").addEventListener("click", (e) => {
+        isDeafened = !isDeafened;
+        e.target.classList.toggle("off", isDeafened);
+        e.target.classList.toggle("active", !isDeafened);
+
+        // Выключаем/включаем свой микрофон
+        localStream.getAudioTracks()[0].enabled = !isDeafened && isMicOn;
+
+        // Выключаем/включаем звук у всех чужих видео
+        const allVideos = document.querySelectorAll("video:not(#local)");
+        allVideos.forEach(v => {
+            v.muted = isDeafened;
+        });
+    });
+
+    // 4. ДЕМОНСТРАЦИЯ ЭКРАНА
+    document.getElementById("screenBtn").addEventListener("click", async (e) => {
+        if (!isScreenSharing) {
+            try {
+                // Запрашиваем экран у пользователя
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = screenStream.getVideoTracks()[0];
+
+                // Заменяем трек видео у всех, с кем мы соединены (без переподключения)
+                for (let id in peers) {
+                    const sender = peers[id].getSenders().find(s => s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(screenTrack);
+                }
+
+                // Показываем экран у себя (оставляя свой старый микрофон)
+                originalVideoTrack = localStream.getVideoTracks()[0];
+                localVideo.srcObject = new MediaStream([screenTrack, localStream.getAudioTracks()[0]]);
+
+                isScreenSharing = true;
+                e.target.classList.add("presenting"); // У тебя в CSS есть этот класс (синий цвет)
+
+                // Если пользователь нажал "Закрыть доступ" на системной плашке браузера
+                screenTrack.onended = stopScreenShare;
+            } catch (err) {
+                console.error("Ошибка захвата экрана:", err);
+            }
+        } else {
+            stopScreenShare();
+        }
+    });
+
+    function stopScreenShare() {
+        if (!isScreenSharing) return;
+        for (let id in peers) {
+            const sender = peers[id].getSenders().find(s => s.track.kind === 'video');
+            if (sender) sender.replaceTrack(originalVideoTrack);
+        }
+        localVideo.srcObject = localStream; // Возвращаем камеру себе
+        isScreenSharing = false;
+        document.getElementById("screenBtn").classList.remove("presenting");
+    }
+
+    // 5. КНОПКА ОТКЛЮЧЕНИЯ
+    document.getElementById("leaveBtn").addEventListener("click", () => {
+        socket.disconnect(); // Разрываем сокет
+        for (let id in peers) {
+            peers[id].close(); // Закрываем WebRTC соединения
+        }
+        window.location.href = "/index.html"; // Уходим в лобби
+    });
+
 
     start();
 
